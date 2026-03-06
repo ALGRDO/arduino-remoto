@@ -2,7 +2,31 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 const { runCommand, createTempSketch, cleanupTempSketch, cliPath } = require('../utils/cli');
+
+// --- Función Auxiliar para Entorno Vercel Volátil ---
+function ensureCliIsInstalled() {
+    if (!process.env.VERCEL) return; // Si es local, asume que está en PATH
+    if (fs.existsSync(cliPath)) return; // Si ya existe en esta instancia Serverless, continuar
+
+    console.log('[Lambda] arduino-cli no encontrado en /tmp. Descargando on-the-fly...');
+    const VERCEL_TMP = '/tmp';
+    const TAR_PATH = path.join(VERCEL_TMP, 'arduino-cli.tar.gz');
+    const DOWNLOAD_URL = 'https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Linux_64bit.tar.gz';
+
+    // Descargar, Extraer e Instalar Cores sincrónicamente (La primera vez tomará ~10s extra)
+    execSync(`curl -sL -o ${TAR_PATH} ${DOWNLOAD_URL}`);
+    execSync(`tar -xzf ${TAR_PATH} -C ${VERCEL_TMP}`);
+    execSync(`chmod +x ${cliPath}`);
+
+    // Instalar AVR Core
+    execSync(`${cliPath} core update-index --config-dir ${VERCEL_TMP}`);
+    execSync(`${cliPath} core install arduino:avr --config-dir ${VERCEL_TMP}`);
+
+    if (fs.existsSync(TAR_PATH)) fs.unlinkSync(TAR_PATH);
+    console.log('[Lambda] Setup de arduino-cli completado.');
+}
 
 // --- HACK PARA VERCEL (Serverless) ---
 // Vercel mantiene la instancia de la función viva temporalmente en memoria cálida por unos minutos.
@@ -22,6 +46,8 @@ router.post('/compile', async (req, res) => {
     const { dir: tmpDir, file: filePath, buildDir, sketchName } = createTempSketch(code);
 
     try {
+        ensureCliIsInstalled();
+
         const compileCmd = `"${cliPath}" compile --fqbn ${fqbn} --build-path "${buildDir}" "${filePath}"`;
         const { stdout, stderr } = await runCommand(compileCmd);
 
