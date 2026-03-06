@@ -1,6 +1,6 @@
 {
     "version": 2,
-    "buildCommand": "cd server && npm install && npm run vercel-build",
+    "buildCommand": "cd server && npm install",
     "builds": [
         {
             "src": "server/server.js",
