@@ -103,7 +103,7 @@ async function pollCloudState() {
             latestHexPayload = data.hex;
             const timeStr = new Date(data.timestamp).toLocaleTimeString();
             syncStatus.className = 'badge bg-green';
-            syncStatus.textContent = 'Hex Depositado en Vercel -> LISTO';
+            syncStatus.textContent = 'Hex Depositado en Render -> LISTO';
             syncTime.textContent = 'Último código recibido: ' + timeStr;
             btnFlash.disabled = false;
         } else {

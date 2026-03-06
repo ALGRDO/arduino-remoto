@@ -19,10 +19,7 @@ router.post('/compile', async (req, res) => {
     const { dir: tmpDir, file: filePath, buildDir, sketchName } = createTempSketch(code);
 
     try {
-        await ensureCliIsInstalled();
-
-        // Aplicar el mismo entorno seguro /tmp para la compilación
-        const compileCmd = `ARDUINO_DATA_DIR = /tmp/.arduino15 ARDUINO_CONFIG_DIR = /tmp/.arduino15 "${cliPath}" compile--fqbn ${fqbn} --build - path "${buildDir}" "${filePath}"`;
+        const compileCmd = `"${cliPath}" compile --fqbn ${fqbn} --build-path "${buildDir}" "${filePath}"`;
         const { stdout, stderr } = await runCommand(compileCmd);
 
         const hexPathStandard = path.join(buildDir, `${sketchName}.ino.hex`);
