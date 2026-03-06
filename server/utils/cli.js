@@ -3,11 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Path resolution for arduino-cli
-// On Vercel this will point to /tmp/arduino-cli downloaded during build.
-const cliPath = process.env.VERCEL ? '/tmp/arduino-cli' : (fs.existsSync(path.join(__dirname, '../../bin/arduino-cli'))
-    ? path.join(__dirname, '../../bin/arduino-cli')
-    : 'arduino-cli');
+const cliPath = path.join(__dirname, '../bin/arduino-cli');
 
 const runCommand = (command) => {
     return new Promise((resolve, reject) => {
