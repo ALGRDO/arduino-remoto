@@ -4,10 +4,11 @@ services:
     env: node
     plan: free
     region: ohio
-    nodeVersion: 18
     buildCommand: 'cd server && npm install && node install-cli.js'
     startCommand: 'cd server && node server.js'
     envVars:
+      - key: NODE_VERSION
+        value: 18.x
       - key: BASIC_AUTH_USER
         value: admin
       - key: BASIC_AUTH_PASS
