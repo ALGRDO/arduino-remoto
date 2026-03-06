@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arduino Cloud IDE</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script src="avrgirl-bundle.js"></script> <!-- Browserify bundle containing avrgirl-arduino -->
+</head>
+
+<body>
+    <header class="navbar">
+        <div class="brand">
+            <span class="logo">🌌</span>
+            <span>Arduino Cloud IDE (Serverless)</span>
+        </div>
+        <div class="tabs">
+            <button id="tab-ide" class="tab active">💻 IDE Web (Programador)</button>
+            <button id="tab-flasher" class="tab">🔌 Hardware Flasher (Arduino Físico)</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- VISTA DE PROGRAMADOR -->
+        <div id="view-ide" class="view active">
+            <div class="toolbar">
+                <span>Escribe código para que la placa remota lo reciba.</span>
+                <button id="btn-compile-send" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                        <path fill="currentColor" d="M5 20h14v-2H5v2zM12 2l-7 7h4v6h6V9h4l-7-7z" />
+                    </svg>
+                    Compilar y Enviar a la Nube
+                </button>
+            </div>
+            <div class="editor-section">
+                <div id="editor" class="monaco-container"></div>
+            </div>
+            <div class="terminal-section">
+                <div class="terminal-header">Consola de Compilación en la Nube</div>
+                <div id="ide-console" class="terminal-content"></div>
+            </div>
+        </div>
+
+        <!-- VISTA DE HARDWARE (Para el Amigo) -->
+        <div id="view-flasher" class="view" style="display: none;">
+            <div class="hw-panel">
+                <h2>Receptor de Hardware Web Serial</h2>
+                <p>Usa Google Chrome. No necesitas instalar nada más. Conecta tu Arduino por USB.</p>
+
+                <div class="state-card">
+                    <h3>Estado del Archivo Remoto:</h3>
+                    <div id="sync-status" class="badge bg-yellow">Sincronizando con la Nube...</div>
+                    <p class="small pt-2" id="sync-time">Último código recibido: Nunca</p>
+                </div>
+
+                <div class="actions pt-3">
+                    <button id="btn-web-flash" class="btn btn-success btn-large" disabled>
+                        🔥 Seleccionar USB y Flashear Código
+                    </button>
+                </div>
+
+                <div class="terminal-section mt-4" style="height: 250px;">
+                    <div class="terminal-header">Actividad del Web Flasher</div>
+                    <div id="flasher-console" class="terminal-content"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

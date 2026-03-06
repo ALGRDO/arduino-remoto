@@ -1,0 +1,24 @@
+{
+    "version": 2,
+    "buildCommand": "cd server && npm install && npm run vercel-build",
+    "builds": [
+        {
+            "src": "server/server.js",
+            "use": "@vercel/node"
+        },
+        {
+            "src": "client/public/**",
+            "use": "@vercel/static"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "server/server.js"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "client/public/$1"
+        }
+    ]
+}

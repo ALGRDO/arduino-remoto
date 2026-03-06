@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: arduino-remote-ide
+    env: node
+    buildCommand: "cd server && npm install"
+    startCommand: "cd server && node server.js"
+    envVars:
+      - key: BASIC_AUTH_USER
+        value: admin
+      - key: BASIC_AUTH_PASS
+        value: arduino123
+      - key: NODE_ENV
+        value: production
+    autoDeploy: true
