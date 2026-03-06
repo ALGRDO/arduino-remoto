@@ -19,7 +19,8 @@ router.post('/compile', async (req, res) => {
     const { dir: tmpDir, file: filePath, buildDir, sketchName } = createTempSketch(code);
 
     try {
-        const compileCmd = `"${cliPath}" compile --fqbn ${fqbn} --build-path "${buildDir}" "${filePath}"`;
+        const dataDir = path.join(__dirname, '../.arduino15');
+        const compileCmd = `"${cliPath}" --config-dir "${dataDir}" --data-dir "${dataDir}" compile --fqbn ${fqbn} --build-path "${buildDir}" "${filePath}"`;
         const { stdout, stderr } = await runCommand(compileCmd);
 
         const hexPathStandard = path.join(buildDir, `${sketchName}.ino.hex`);
