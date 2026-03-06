@@ -34,7 +34,7 @@ async function setup() {
     if (fs.existsSync(TAR_PATH)) fs.unlinkSync(TAR_PATH);
 
     console.log('Instalando arduino:avr core...');
-    const DATA_DIR = path.join(__dirname, '.arduino15');
+    const DATA_DIR = path.join(process.cwd(), '.arduino15');
     execSync(`${CLI_PATH} --config-dir "${DATA_DIR}" --data-dir "${DATA_DIR}" core update-index`);
     execSync(`${CLI_PATH} --config-dir "${DATA_DIR}" --data-dir "${DATA_DIR}" core install arduino:avr`);
     console.log('Render Build Completo.');
