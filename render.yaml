@@ -9,7 +9,3 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 18.x
-      - key: BASIC_AUTH_USER
-        value: admin
-      - key: BASIC_AUTH_PASS
-        generateValue: true

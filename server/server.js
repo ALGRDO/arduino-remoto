@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
-const basicAuth = require('express-basic-auth');
 
 const app = express();
 const server = http.createServer(app);
@@ -12,14 +11,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Express Basic Auth Middleware (Protect all routes & static files)
-const adminUser = process.env.BASIC_AUTH_USER || 'admin';
-const adminPass = process.env.BASIC_AUTH_PASS || 'arduino123';
-app.use(basicAuth({
-    users: { [adminUser]: adminPass },
-    challenge: true,
-    realm: 'Arduino Remote IDE'
-}));
+// Rutas liberadas de autenticación
+console.log('Autenticación web deshabilitada. Proyecto público.');
 
 // Servir archivos estáticos de la carpeta "client/public"
 app.use(express.static(path.join(__dirname, '../client/public')));
