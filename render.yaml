@@ -2,6 +2,9 @@ services:
   - type: web
     name: arduino-remoto
     env: node
+    plan: free
+    region: ohio
+    nodeVersion: 18
     buildCommand: 'cd server && npm install && node install-cli.js'
     startCommand: 'cd server && node server.js'
     envVars:
