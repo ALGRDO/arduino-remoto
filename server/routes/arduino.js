@@ -15,14 +15,18 @@ function ensureCliIsInstalled() {
     const TAR_PATH = path.join(VERCEL_TMP, 'arduino-cli.tar.gz');
     const DOWNLOAD_URL = 'https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Linux_64bit.tar.gz';
 
+    // Para evitar errores en Vercel (read-only filesystem en $HOME), 
+    // forzamos al CLI a usar todo en /tmp mediante variables de entorno nativas.
+    const envParams = { env: { ...process.env, ARDUINO_DATA_DIR: '/tmp/.arduino15', ARDUINO_CONFIG_DIR: '/tmp/.arduino15' } };
+
     // Descargar, Extraer e Instalar Cores sincrónicamente (La primera vez tomará ~10s extra)
     execSync(`curl -sL -o ${TAR_PATH} ${DOWNLOAD_URL}`);
     execSync(`tar -xzf ${TAR_PATH} -C ${VERCEL_TMP}`);
     execSync(`chmod +x ${cliPath}`);
 
     // Instalar AVR Core
-    execSync(`${cliPath} core update-index --config-dir ${VERCEL_TMP}`);
-    execSync(`${cliPath} core install arduino:avr --config-dir ${VERCEL_TMP}`);
+    execSync(`${cliPath} core update-index`, envParams);
+    execSync(`${cliPath} core install arduino:avr`, envParams);
 
     if (fs.existsSync(TAR_PATH)) fs.unlinkSync(TAR_PATH);
     console.log('[Lambda] Setup de arduino-cli completado.');
@@ -48,7 +52,8 @@ router.post('/compile', async (req, res) => {
     try {
         ensureCliIsInstalled();
 
-        const compileCmd = `"${cliPath}" compile --fqbn ${fqbn} --build-path "${buildDir}" "${filePath}"`;
+        // Aplicar el mismo entorno seguro /tmp para la compilación
+        const compileCmd = `ARDUINO_DATA_DIR=/tmp/.arduino15 ARDUINO_CONFIG_DIR=/tmp/.arduino15 "${cliPath}" compile --fqbn ${fqbn} --build-path "${buildDir}" "${filePath}"`;
         const { stdout, stderr } = await runCommand(compileCmd);
 
         const hexPathStandard = path.join(buildDir, `${sketchName}.ino.hex`);
@@ -72,10 +77,16 @@ router.post('/compile', async (req, res) => {
         });
 
     } catch (e) {
+        // Formateo seguro de Búferes crudos provenientes de child_process
+        let errorDetails = e.message || String(e);
+        if (e.stderr) errorDetails = e.stderr.toString();
+        else if (e.stdout) errorDetails = e.stdout.toString();
+
+        console.error("Compilation error:", e);
         res.status(500).json({
             success: false,
             error: 'Falló la compilación.',
-            details: e.stderr || e.stdout || e.message
+            details: errorDetails
         });
     } finally {
         cleanupTempSketch(tmpDir);
