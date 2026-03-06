@@ -22,32 +22,29 @@ if (fs.existsSync(CLI_PATH)) {
 console.log('Descargando arduino-cli para Vercel Serverless environment...');
 
 const file = fs.createWriteStream(TAR_PATH);
-https.get(DOWNLOAD_URL, function (response) {
-    response.pipe(file);
-    file.on('finish', function () {
-        file.close(() => {
-            console.log('Descarga completada. Extrayendo...');
-            try {
-                execSync(`tar -xzf ${TAR_PATH} -C ${VERCEL_TMP}`);
-                execSync(`chmod +x ${CLI_PATH}`);
-                console.log('arduino-cli binario instalado exitosamente en /tmp');
 
-                // Instalar el AVR core
-                console.log('Instalando arduino:avr core...');
-                execSync(`${CLI_PATH} core update-index --config-dir ${VERCEL_TMP} --data-dir ${VERCEL_TMP}`);
-                execSync(`${CLI_PATH} core install arduino:avr --config-dir ${VERCEL_TMP} --data-dir ${VERCEL_TMP}`);
-                console.log('Core instalado.');
+console.log('Descargando arduino-cli...');
+try {
+    // Usamos curl -L para seguir redirecciones (HTTP 302) que https.get ignora por defecto
+    execSync(`curl -L -o ${TAR_PATH} ${DOWNLOAD_URL}`);
+    console.log('Descarga completada. Extrayendo...');
 
-                fs.unlinkSync(TAR_PATH); // Limpiar
-                console.log('Setup finalizado.');
-            } catch (e) {
-                console.error('Error durante la extracción o instalación de cores:', e.message);
-                process.exit(1);
-            }
-        });
-    });
-}).on('error', function (err) {
-    fs.unlink(TAR_PATH, () => { });
-    console.error('Error descargando arduino-cli:', err.message);
+    execSync(`tar -xzf ${TAR_PATH} -C ${VERCEL_TMP}`);
+    execSync(`chmod +x ${CLI_PATH}`);
+    console.log('arduino-cli binario instalado exitosamente en /tmp');
+
+    // Instalar el AVR core
+    console.log('Instalando arduino:avr core...');
+    execSync(`${CLI_PATH} core update-index --config-dir ${VERCEL_TMP}`);
+    execSync(`${CLI_PATH} core install arduino:avr --config-dir ${VERCEL_TMP}`);
+    console.log('Core instalado.');
+
+    if (fs.existsSync(TAR_PATH)) fs.unlinkSync(TAR_PATH); // Limpiar
+    console.log('Setup finalizado.');
+} catch (e) {
+    if (fs.existsSync(TAR_PATH)) fs.unlinkSync(TAR_PATH);
+    console.error('Error durante la descarga, extracción o instalación de cores:', e.message);
+    if (e.stdout) console.error('STDOUT:', e.stdout.toString());
+    if (e.stderr) console.error('STDERR:', e.stderr.toString());
     process.exit(1);
-});
+}
