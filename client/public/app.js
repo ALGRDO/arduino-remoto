@@ -100,13 +100,15 @@ function initServerView() {
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.success) {
-                    logIde('Compilación exitosa.', 'success');
-                    logIde('Enviando .hex al hardware remoto...', 'info');
+                    logIde('✅ Compilación exitosa.', 'success');
+                    logIde('📡 Enviando .hex al hardware remoto...', 'info');
                     // Send hex to client via WebSocket
                     WsClient.send({ type: 'flash_hex', hex: data.hex });
-                    logIde('Hex enviado al cliente. Esperando flash...', 'info');
+                    logIde('✅ Hex enviado. Esperando confirmación de flash...', 'info');
                 } else {
-                    logIde('Error de compilación:\\n' + (data.error || 'Error desconocido'), 'error');
+                    logIde('❌ Error de compilación:', 'error');
+                    var errMsg = data.details || data.error || 'Error desconocido';
+                    logIde(errMsg, 'error');
                 }
             })
             .catch(function (e) {
