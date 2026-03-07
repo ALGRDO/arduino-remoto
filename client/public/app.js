@@ -1,12 +1,89 @@
-const DEFAULT_CODE = `void setup() {
+const TEMPLATES = {
+    default: `void setup() {\n  Serial.begin(9600);\n  Serial.println("Hello from Serverless IDE");\n}\n\nvoid loop() {\n  delay(1000);\n  Serial.println("Ping");\n}`,
+
+    line_follower: `/* EXPERIMENTO A: SEGUIDOR DE LÍNEA (TCRT5000) */
+// Pines de Motores (Adapta según tu Driver L298N/L293D)
+const int motorIzqA = 5;
+const int motorIzqB = 6;
+const int motorDerA = 9;
+const int motorDerB = 10;
+
+// Pines de Sensores IR Inferiores
+const int sensorIzq = 2;
+const int sensorDer = 3;
+
+void setup() {
+  pinMode(motorIzqA, OUTPUT); pinMode(motorIzqB, OUTPUT);
+  pinMode(motorDerA, OUTPUT); pinMode(motorDerB, OUTPUT);
+  pinMode(sensorIzq, INPUT);  pinMode(sensorDer, INPUT);
   Serial.begin(9600);
-  Serial.println("Hello from Serverless IDE");
 }
 
 void loop() {
-  delay(1000);
-  Serial.println("Ping");
-}`;
+  int valorIzq = digitalRead(sensorIzq);
+  int valorDer = digitalRead(sensorDer);
+  
+  // Tu Misión: Escribe la lógica para que el robot siga la línea negra.
+  // Ejemplo: Si el sensor izquierdo ve negro (HIGH), gira a la izquierda.
+  
+  if (valorIzq == HIGH && valorDer == LOW) {
+    // Girar Izquierda
+  } else if (valorIzq == LOW && valorDer == HIGH) {
+    // Girar Derecha
+  } else {
+    // Avanzar Recto
+  }
+}`,
+
+    wall_avoider: `/* EXPERIMENTO B: EXPLORADOR ANTI-CHOQUES (HC-SR04) */
+// Pines de Motores
+const int motorIzqA = 5;
+const int motorIzqB = 6;
+const int motorDerA = 9;
+const int motorDerB = 10;
+
+// Pines del Sensor Ultrasónico (Ping)
+const int trigPin = 11;
+const int echoPin = 12;
+
+// LED de Alerta Visual
+const int ledAlerta = 13;
+
+long leerDistancia() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  long duracion = pulseIn(echoPin, HIGH);
+  return duracion * 0.034 / 2;
+}
+
+void setup() {
+  pinMode(motorIzqA, OUTPUT); pinMode(motorIzqB, OUTPUT);
+  pinMode(motorDerA, OUTPUT); pinMode(motorDerB, OUTPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(ledAlerta, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  long distancia = leerDistancia();
+  
+  if (distancia < 10 && distancia > 0) {
+    // ¡Obstáculo detectado!
+    digitalWrite(ledAlerta, HIGH);
+    // Tu Misión: Escribe el código para frenar, retroceder y girar.
+    
+  } else {
+    // Vía libre
+    digitalWrite(ledAlerta, LOW);
+    // Tu Misión: Escribe el código para avanzar a toda velocidad.
+    
+  }
+}`
+};
 
 // UI TABS
 const tabIde = document.getElementById('tab-ide');
@@ -33,15 +110,23 @@ let editor;
 require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 require(['vs/editor/editor.main'], function () {
     editor = monaco.editor.create(document.getElementById('editor'), {
-        value: DEFAULT_CODE, language: 'cpp', theme: 'vs-dark', automaticLayout: true
+        value: TEMPLATES.default, language: 'cpp', theme: 'vs-dark', automaticLayout: true
     });
 });
 
 const ideConsole = document.getElementById('ide-console');
 const btnCompileSend = document.getElementById('btn-compile-send');
 
+const templateSelector = document.getElementById('template-selector');
+templateSelector.addEventListener('change', (e) => {
+    if (editor) {
+        editor.setValue(TEMPLATES[e.target.value]);
+        logIde(\`Plantilla cargada exitosamente.\`, 'info');
+    }
+});
+
 function logIde(msg, type = 'info') {
-    ideConsole.innerHTML += `<div class="log log-${type}">${msg}</div>`;
+    ideConsole.innerHTML += \`<div class="log log-\${type}">\${msg}</div>\`;
     ideConsole.scrollTop = ideConsole.scrollHeight;
 }
 
@@ -80,7 +165,7 @@ const syncTime = document.getElementById('sync-time');
 let latestHexPayload = null;
 
 function logFlasher(msg, type = 'info') {
-    flasherConsole.innerHTML += `<div class="log log-${type}">[WebSerial] ${msg}</div>`;
+    flasherConsole.innerHTML += \`<div class="log log-\${type}">[WebSerial] \${msg}</div>\`;
     flasherConsole.scrollTop = flasherConsole.scrollHeight;
 }
 

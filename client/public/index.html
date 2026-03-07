@@ -25,9 +25,17 @@
     <main class="container">
         <!-- VISTA DE PROGRAMADOR -->
         <div id="view-ide" class="view active">
-            <div class="toolbar">
-                <span>Escribe código para que la placa remota lo reciba.</span>
-                <button id="btn-compile-send" class="btn btn-primary">
+            <div class="toolbar"
+                style="display: flex; gap: 10px; align-items: center; padding: 10px; background: #252526; border-bottom: 1px solid #333;">
+                <span style="flex-grow: 1;">Escribe código para la placa remota.</span>
+                <select id="template-selector"
+                    style="padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
+                    <option value="default">✨ Plantilla: Básico (Blink)</option>
+                    <option value="line_follower">🤖 Robot: Seguidor de Línea (TCRT5000)</option>
+                    <option value="wall_avoider">🚓 Robot: Explorador Anti-Choques (Ping)</option>
+                </select>
+                <button id="btn-compile-send" class="btn btn-primary"
+                    style="display: flex; align-items: center; gap: 5px;">
                     <svg viewBox="0 0 24 24" width="16" height="16">
                         <path fill="currentColor" d="M5 20h14v-2H5v2zM12 2l-7 7h4v6h6V9h4l-7-7z" />
                     </svg>
