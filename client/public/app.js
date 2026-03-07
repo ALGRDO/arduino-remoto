@@ -318,7 +318,7 @@ function initClientView() {
             var arr = new Uint8Array(raw.length);
             for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
 
-            var avrgirl = new AvrgirlArduino({
+            var avrgirl = new Avrgirl({
                 board: 'uno',
                 debug: true
             });
