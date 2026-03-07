@@ -299,52 +299,41 @@ function initClientView() {
         try {
             logClient('Iniciando flash del Arduino...', 'info');
 
-            // Close serial reader/writer before flashing
+            // Release serial locks before flash (ArduinoFlash will reopen the port)
             if (serialReader) {
-                await serialReader.cancel();
-                serialReader.releaseLock();
+                try { await serialReader.cancel(); serialReader.releaseLock(); } catch (e) { }
                 serialReader = null;
             }
             if (serialWriter) {
-                serialWriter.releaseLock();
+                try { serialWriter.releaseLock(); } catch (e) { }
                 serialWriter = null;
             }
-            if (serialPort) {
-                await serialPort.close();
+
+            if (!serialPort) {
+                throw new Error('Conecta el Arduino primero antes de flashear.');
             }
 
-            // Decode hex from base64
-            var raw = atob(hexBase64);
-            var arr = new Uint8Array(raw.length);
-            for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-
-            var avrgirl = new Avrgirl({
-                board: 'uno',
-                debug: true
+            // Use our browser-native STK500 flasher
+            await ArduinoFlash.flash(serialPort, hexBase64, function (progress) {
+                logClient(progress, 'info');
             });
 
-            avrgirl.flash(arr.buffer, function (error) {
-                if (error) {
-                    logClient('Error de flash: ' + error.message, 'error');
-                    WsClient.send({ type: 'flash_status', success: false, message: 'Flash error: ' + error.message });
-                } else {
-                    logClient('¡Flash completado exitosamente!', 'success');
-                    WsClient.send({ type: 'flash_status', success: true, message: '¡Flash completado!' });
+            logClient('¡Flash completado exitosamente!', 'success');
+            WsClient.send({ type: 'flash_status', success: true, message: '¡Flash completado!' });
 
-                    // Re-open serial after flash
-                    setTimeout(async function () {
-                        try {
-                            await serialPort.open({ baudRate: 9600 });
-                            serialWriter = serialPort.writable.getWriter();
-                            serialReader = serialPort.readable.getReader();
-                            logClient('Serial reconectado post-flash.', 'success');
-                            readSerial();
-                        } catch (e) {
-                            logClient('Error reconectando serial: ' + e.message, 'error');
-                        }
-                    }, 2000);
+            // Re-open serial after flash for motor commands
+            setTimeout(async function () {
+                try {
+                    await serialPort.open({ baudRate: 9600 });
+                    serialWriter = serialPort.writable.getWriter();
+                    serialReader = serialPort.readable.getReader();
+                    logClient('Serial reconectado a 9600 baud post-flash.', 'success');
+                    readSerial();
+                } catch (e) {
+                    logClient('Error reconectando serial: ' + e.message, 'error');
                 }
-            });
+            }, 1500);
+
         } catch (e) {
             logClient('Error durante flash: ' + e.message, 'error');
             WsClient.send({ type: 'flash_status', success: false, message: 'Error: ' + e.message });
