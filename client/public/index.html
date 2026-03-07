@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arduino Remote Lab — Cloud IDE</title>
+    <title>Arduino Remote Lab — Control Remoto</title>
     <meta name="description"
-        content="Programa y flashea un Arduino real desde tu navegador. Sin instalaciones. Zero config.">
+        content="Controla un Arduino real remotamente. El programador escribe código y controla; el cliente conecta el hardware.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
@@ -18,263 +18,207 @@
 </head>
 
 <body>
-    <header class="navbar">
-        <div class="brand">
-            <div class="brand-icon">⚡</div>
-            <div class="brand-text">
-                <span class="brand-name">Arduino Remote Lab</span>
-                <span class="brand-sub">Cloud IDE · Zero Install</span>
-            </div>
-        </div>
-        <nav class="tabs">
-            <button id="tab-ide" class="tab active">
-                <span class="tab-icon">💻</span>
-                <span class="tab-label">IDE Web</span>
-            </button>
-            <button id="tab-flasher" class="tab">
-                <span class="tab-icon">🔌</span>
-                <span class="tab-label">Hardware Flasher</span>
-            </button>
-            <button id="tab-simulator" class="tab">
-                <span class="tab-icon">🤖</span>
-                <span class="tab-label">Simulador</span>
-            </button>
-        </nav>
-        <div class="nav-status">
-            <span class="status-dot"></span>
-            <span class="status-text">Render Cloud</span>
-        </div>
-    </header>
+    <!-- ===== ROLE SELECTION SPLASH ===== -->
+    <div id="splash" class="splash">
+        <div class="splash-content">
+            <div class="splash-icon">⚡</div>
+            <h1 class="splash-title">Arduino Remote Lab</h1>
+            <p class="splash-sub">Control Remoto de Robótica Educativa</p>
 
-    <main class="container">
-        <!-- VISTA DE PROGRAMADOR -->
-        <div id="view-ide" class="view active">
-            <div class="toolbar">
-                <div class="toolbar-left">
-                    <select id="template-selector" class="template-select">
-                        <option value="default">✨ Básico — Blink</option>
-                        <option value="line_follower">🤖 Robot — Seguidor de Línea</option>
-                        <option value="wall_avoider">🚓 Robot — Anti-Choques</option>
-                    </select>
-                </div>
-                <div class="toolbar-right">
-                    <button id="btn-toggle-video" class="btn btn-video" title="Ver cámara en vivo">
-                        📹 Cámara
-                    </button>
-                    <button id="btn-compile-send" class="btn btn-compile">
-                        <svg viewBox="0 0 24 24" width="16" height="16">
-                            <path fill="currentColor"
-                                d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
-                        </svg>
-                        Compilar en la Nube
-                    </button>
+            <div class="splash-roles">
+                <button id="btn-role-server" class="splash-role-btn role-server">
+                    <span class="role-icon">🖥️</span>
+                    <span class="role-name">Soy el Programador</span>
+                    <span class="role-desc">Escribo código, compilo y controlo el robot remotamente</span>
+                </button>
+                <button id="btn-role-client" class="splash-role-btn role-client">
+                    <span class="role-icon">🔌</span>
+                    <span class="role-name">Soy el Hardware</span>
+                    <span class="role-desc">Conecto el Arduino por USB y comparto la cámara</span>
+                </button>
+            </div>
+
+            <p class="splash-footer">Ambas personas deben abrir esta página. Una controla, la otra conecta.</p>
+        </div>
+    </div>
+
+    <!-- ===== SERVER (PROGRAMMER) VIEW ===== -->
+    <div id="view-server" class="role-view" style="display:none;">
+        <header class="navbar">
+            <div class="brand">
+                <div class="brand-icon">⚡</div>
+                <div class="brand-text">
+                    <span class="brand-name">Arduino Remote Lab</span>
+                    <span class="brand-sub">Programador · Control Remoto</span>
                 </div>
             </div>
-            <div class="editor-section">
-                <div id="editor" class="monaco-container"></div>
-                <!-- Floating Video Panel (PiP) -->
-                <div id="video-pip" class="video-pip hidden">
-                    <div class="video-pip-header">
-                        <span>📹 Cámara en Vivo</span>
-                        <button id="btn-close-pip" class="video-pip-close">✕</button>
+            <div class="nav-status">
+                <span id="server-peer-dot" class="status-dot offline"></span>
+                <span id="server-peer-text" class="status-text">Hardware desconectado</span>
+            </div>
+        </header>
+
+        <main class="lab-container">
+            <!-- LEFT: Code Editor -->
+            <div class="lab-panel lab-panel-left" style="width: 380px;">
+                <h3 class="lab-panel-title">💻 Editor de Código</h3>
+                <select id="template-selector" class="template-select" style="width:100%; margin-bottom:8px;">
+                    <option value="default">✨ Básico — Blink</option>
+                    <option value="line_follower">🤖 Robot — Seguidor de Línea</option>
+                    <option value="wall_avoider">🚓 Robot — Anti-Choques</option>
+                </select>
+                <div id="editor" class="monaco-container" style="flex:1; min-height:200px;"></div>
+                <button id="btn-compile-send" class="btn btn-compile" style="width:100%; margin-top:8px;">
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                        <path fill="currentColor"
+                            d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
+                    </svg>
+                    Compilar y Enviar al Robot
+                </button>
+                <div class="terminal-section" style="margin-top:8px; max-height:120px;">
+                    <div class="terminal-header">
+                        <span class="terminal-dot red"></span>
+                        <span class="terminal-dot yellow"></span>
+                        <span class="terminal-dot green"></span>
+                        <span class="terminal-title">Consola</span>
                     </div>
-                    <div class="video-pip-body">
-                        <div id="video-placeholder-ide" class="video-placeholder">
-                            <span class="video-placeholder-icon">📹</span>
-                            <p>Ingresa el nombre de sala para conectar</p>
-                            <div class="video-room-input">
-                                <input type="text" id="video-room-name" class="input-room"
-                                    placeholder="Nombre de sala (ej: mi-arduino-lab)" value="arduino-remoto-lab">
-                                <button id="btn-connect-video" class="btn btn-compile btn-sm">Conectar</button>
-                            </div>
+                    <div id="ide-console" class="terminal-content"></div>
+                </div>
+            </div>
+
+            <!-- CENTER: Camera + Controls -->
+            <div class="lab-center">
+                <h2 class="lab-title">Robot Arduino</h2>
+                <div class="lab-banner">
+                    Usa las flechas para mover el robot. Presiona "Compilar y Enviar" para cargar un programa
+                    autónomo.
+                </div>
+
+                <!-- Camera Feed from Client -->
+                <div class="lab-camera-wrap">
+                    <div class="lab-camera-placeholder" id="server-cam-placeholder">
+                        <span style="font-size:48px;">📹</span>
+                        <p>Esperando conexión de cámara del hardware...</p>
+                    </div>
+                    <iframe id="server-cam-iframe" class="lab-camera-iframe hidden"
+                        allow="camera; microphone; display-capture; autoplay; clipboard-write" allowfullscreen></iframe>
+                </div>
+
+                <!-- Controls Row -->
+                <div class="lab-controls-row">
+                    <div class="lab-arrows">
+                        <div class="lab-arrow-row">
+                            <button id="btn-arrow-up" class="lab-arrow-btn">⬆</button>
                         </div>
-                        <iframe id="video-iframe-ide" class="video-iframe hidden"
+                        <div class="lab-arrow-row">
+                            <button id="btn-arrow-left" class="lab-arrow-btn">⬅</button>
+                            <button id="btn-arrow-right" class="lab-arrow-btn">➡</button>
+                        </div>
+                    </div>
+                    <div class="lab-abc">
+                        <button id="btn-prog-a" class="lab-abc-btn" title="Programa A: Seguidor de Línea">A</button>
+                        <button id="btn-prog-b" class="lab-abc-btn" title="Programa B: Anti-Choques">B</button>
+                        <button id="btn-prog-c" class="lab-abc-btn" title="Programa C: Detener">C</button>
+                    </div>
+                    <div class="lab-leds">
+                        <button id="btn-led-1" class="lab-led-btn" title="LED 1"></button>
+                        <button id="btn-led-2" class="lab-led-btn" title="LED 2"></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Serial Monitor -->
+            <div class="lab-panel lab-panel-right">
+                <h3 class="lab-panel-title">📟 Monitor Serie</h3>
+                <div class="lab-serial-output" id="server-serial-output">
+                    <div class="log log-info">> Esperando datos del robot...</div>
+                </div>
+                <div class="lab-serial-input">
+                    <label class="small">Enviar:</label>
+                    <div class="lab-serial-send">
+                        <input type="text" id="server-serial-text" class="input-room" placeholder="Comando...">
+                        <button id="btn-serial-send" class="btn btn-compile btn-sm">⬆</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== CLIENT (HARDWARE) VIEW ===== -->
+    <div id="view-client" class="role-view" style="display:none;">
+        <header class="navbar">
+            <div class="brand">
+                <div class="brand-icon">🔌</div>
+                <div class="brand-text">
+                    <span class="brand-name">Arduino Remote Lab</span>
+                    <span class="brand-sub">Receptor Hardware</span>
+                </div>
+            </div>
+            <div class="nav-status">
+                <span id="client-peer-dot" class="status-dot offline"></span>
+                <span id="client-peer-text" class="status-text">Programador desconectado</span>
+            </div>
+        </header>
+
+        <main class="client-main">
+            <div class="client-hero">
+                <div class="client-hero-icon">🔌</div>
+                <h2>Receptor de Hardware</h2>
+                <p class="hw-subtitle">Conecta tu Arduino por USB y comparte tu cámara para que el programador vea el
+                    robot.</p>
+            </div>
+
+            <div class="hw-grid">
+                <!-- Arduino Connection -->
+                <div class="state-card">
+                    <div class="state-card-header">
+                        <span class="state-card-icon">⚡</span>
+                        <h3>Conexión Arduino</h3>
+                    </div>
+                    <button id="btn-connect-arduino" class="btn btn-compile" style="width:100%;">
+                        🔌 Conectar Arduino por USB
+                    </button>
+                    <div id="client-arduino-status" class="badge bg-yellow" style="margin-top:10px;">
+                        Desconectado
+                    </div>
+                    <p class="small pt-2">Web Serial API · Chrome/Edge/Brave</p>
+                </div>
+
+                <!-- Camera Sharing -->
+                <div class="state-card">
+                    <div class="state-card-header">
+                        <span class="state-card-icon">📹</span>
+                        <h3>Cámara en Vivo</h3>
+                    </div>
+                    <p class="small" style="margin-bottom:10px;">Apunta la cámara al robot para que el programador lo
+                        vea.</p>
+                    <div class="video-room-input">
+                        <input type="text" id="client-room-name" class="input-room" placeholder="Nombre de sala"
+                            value="arduino-remoto-lab">
+                        <button id="btn-connect-camera" class="btn btn-compile btn-sm">Conectar</button>
+                    </div>
+                    <div id="client-cam-container" style="margin-top:10px;">
+                        <iframe id="client-cam-iframe" class="video-iframe-hw hidden"
                             allow="camera; microphone; display-capture; autoplay; clipboard-write"
                             allowfullscreen></iframe>
                     </div>
                 </div>
             </div>
-            <div class="terminal-section">
+
+            <!-- Activity Log -->
+            <div class="terminal-section flasher-terminal" style="max-width:800px; margin:20px auto;">
                 <div class="terminal-header">
                     <span class="terminal-dot red"></span>
                     <span class="terminal-dot yellow"></span>
                     <span class="terminal-dot green"></span>
-                    <span class="terminal-title">Consola de Compilación</span>
+                    <span class="terminal-title">Actividad del Hardware</span>
                 </div>
-                <div id="ide-console" class="terminal-content"></div>
+                <div id="client-console" class="terminal-content"></div>
             </div>
-        </div>
+        </main>
+    </div>
 
-        <!-- VISTA DE HARDWARE -->
-        <div id="view-flasher" class="view" style="display: none;">
-            <div class="hw-panel">
-                <div class="hw-hero">
-                    <div class="hw-hero-icon">🔌</div>
-                    <h2>Receptor de Hardware</h2>
-                    <p class="hw-subtitle">Conecta tu Arduino por USB. Usa Google Chrome. No necesitas instalar nada.
-                    </p>
-                </div>
-
-                <div class="hw-grid">
-                    <div class="state-card">
-                        <div class="state-card-header">
-                            <span class="state-card-icon">📡</span>
-                            <h3>Estado del Archivo Remoto</h3>
-                        </div>
-                        <div id="sync-status" class="badge bg-yellow">Sincronizando con la Nube...</div>
-                        <p class="small pt-2" id="sync-time">Último código recibido: Nunca</p>
-                    </div>
-
-                    <div class="state-card action-card">
-                        <div class="state-card-header">
-                            <span class="state-card-icon">⚡</span>
-                            <h3>Flashear al Arduino</h3>
-                        </div>
-                        <button id="btn-web-flash" class="btn btn-flash" disabled>
-                            🔥 Seleccionar USB y Flashear
-                        </button>
-                        <p class="small pt-2">Web Serial API · Chrome/Edge/Brave</p>
-                    </div>
-                </div>
-
-                <!-- Video Card for Hardware View -->
-                <div class="state-card video-card">
-                    <div class="state-card-header">
-                        <span class="state-card-icon">📹</span>
-                        <h3>Cámara en Vivo</h3>
-                    </div>
-                    <p class="small" style="margin-bottom: 12px;">Comparte la cámara de tu celular para que el
-                        programador vea el Arduino/robot.</p>
-                    <div id="video-placeholder-hw" class="video-placeholder">
-                        <div class="video-room-input">
-                            <input type="text" id="video-room-name-hw" class="input-room" placeholder="Nombre de sala"
-                                value="arduino-remoto-lab">
-                            <button id="btn-connect-video-hw" class="btn btn-compile btn-sm">Conectar Video</button>
-                        </div>
-                    </div>
-                    <iframe id="video-iframe-hw" class="video-iframe-hw hidden"
-                        allow="camera; microphone; display-capture; autoplay; clipboard-write" allowfullscreen></iframe>
-                </div>
-
-                <div class="terminal-section flasher-terminal">
-                    <div class="terminal-header">
-                        <span class="terminal-dot red"></span>
-                        <span class="terminal-dot yellow"></span>
-                        <span class="terminal-dot green"></span>
-                        <span class="terminal-title">Actividad del Web Flasher</span>
-                    </div>
-                    <div id="flasher-console" class="terminal-content"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- VISTA DE LABORATORIO REMOTO (LabsLand Style) -->
-        <div id="view-simulator" class="view" style="display: none;">
-            <div class="lab-container">
-                <!-- LEFT PANEL: Program & Actions -->
-                <div class="lab-panel lab-panel-left">
-                    <h3 class="lab-panel-title">🤖 Tu Programa</h3>
-
-                    <div class="lab-card">
-                        <p class="lab-card-text">Selecciona una plantilla y presiona
-                            <strong>"Programar en el robot"</strong> para enviar tu código.
-                        </p>
-                        <select id="sim-mode" class="template-select" style="width:100%; margin-bottom:10px;">
-                            <option value="line_follower">🤖 Seguidor de Línea</option>
-                            <option value="wall_avoider">🚓 Anti-Choques</option>
-                        </select>
-                        <button id="btn-sim-start" class="btn btn-compile" style="width:100%;">
-                            ⬆ Programar en el robot
-                        </button>
-                    </div>
-
-                    <div class="lab-card">
-                        <button id="btn-sim-stop" class="btn btn-video" style="width:100%; margin-bottom:8px;">
-                            ⏸ Detener simulación
-                        </button>
-                        <button id="btn-sim-reset" class="btn btn-video" style="width:100%;">
-                            🔄 Reiniciar
-                        </button>
-                    </div>
-
-                    <div class="lab-card">
-                        <p class="lab-card-label">✏ Ver programas de ejemplo</p>
-                        <p class="small">Elige una plantilla arriba para cargar el código del experimento en el editor.
-                        </p>
-                    </div>
-                </div>
-
-                <!-- CENTER: Camera + Controls -->
-                <div class="lab-center">
-                    <h2 class="lab-title">Robot Arduino</h2>
-
-                    <!-- Info banner -->
-                    <div class="lab-banner">
-                        Al principio, puedes mover el robot como quieras con las flechas.
-                        Después, puedes usar el panel de la izquierda para subir un programa al robot.
-                    </div>
-
-                    <!-- Camera / Simulation View -->
-                    <div class="lab-camera-wrap">
-                        <canvas id="sim-canvas"></canvas>
-                        <div id="lab-camera-overlay" class="lab-camera-overlay hidden">
-                            <iframe id="lab-camera-iframe" class="lab-camera-iframe"
-                                allow="camera; microphone; display-capture; autoplay; clipboard-write"
-                                allowfullscreen></iframe>
-                        </div>
-                        <!-- Switch between sim canvas and live camera -->
-                        <div class="lab-camera-toggle">
-                            <button id="btn-view-sim" class="lab-view-btn active" title="Simulación">🤖 Sim</button>
-                            <button id="btn-view-cam" class="lab-view-btn" title="Cámara en Vivo">📹 Cámara</button>
-                        </div>
-                    </div>
-
-                    <!-- Controls Row -->
-                    <div class="lab-controls-row">
-                        <!-- Directional Arrows -->
-                        <div class="lab-arrows">
-                            <div class="lab-arrow-row">
-                                <button id="btn-arrow-up" class="lab-arrow-btn">⬆</button>
-                            </div>
-                            <div class="lab-arrow-row">
-                                <button id="btn-arrow-left" class="lab-arrow-btn">⬅</button>
-                                <button id="btn-arrow-right" class="lab-arrow-btn">➡</button>
-                            </div>
-                        </div>
-
-                        <!-- A B C Program Buttons -->
-                        <div class="lab-abc">
-                            <button id="btn-prog-a" class="lab-abc-btn">A</button>
-                            <button id="btn-prog-b" class="lab-abc-btn">B</button>
-                            <button id="btn-prog-c" class="lab-abc-btn">C</button>
-                        </div>
-
-                        <!-- LED Toggles -->
-                        <div class="lab-leds">
-                            <button id="btn-led-1" class="lab-led-btn" title="LED 1"></button>
-                            <button id="btn-led-2" class="lab-led-btn" title="LED 2"></button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- RIGHT PANEL: Serial Monitor -->
-                <div class="lab-panel lab-panel-right">
-                    <h3 class="lab-panel-title">📟 Monitor Serie</h3>
-                    <div class="lab-serial-output" id="lab-serial-output">
-                        <div class="log log-info">> Esperando datos del robot...</div>
-                    </div>
-                    <div class="lab-serial-input">
-                        <label class="small">Enviar:</label>
-                        <div class="lab-serial-send">
-                            <input type="text" id="lab-serial-text" class="input-room" placeholder="Comando...">
-                            <button id="btn-serial-send" class="btn btn-compile btn-sm">⬆</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
+    <script src="ws-client.js"></script>
     <script src="simulator.js"></script>
     <script src="app.js"></script>
 </body>

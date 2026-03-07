@@ -1,478 +1,351 @@
-const TEMPLATES = {
-    default: `void setup() {\n  Serial.begin(9600);\n  Serial.println("Hello from Serverless IDE");\n}\n\nvoid loop() {\n  delay(1000);\n  Serial.println("Ping");\n}`,
+// ===== ARDUINO REMOTE LAB — ROLE-BASED APP =====
+'use strict';
 
-    line_follower: `/* EXPERIMENTO A: SEGUIDOR DE LÍNEA (TCRT5000) */
-// Pines de Motores (Adapta según tu Driver L298N/L293D)
-const int motorIzqA = 5;
-const int motorIzqB = 6;
-const int motorDerA = 9;
-const int motorDerB = 10;
+var currentRole = null;
+var serialPort = null;
+var serialWriter = null;
+var serialReader = null;
 
-// Pines de Sensores IR Inferiores
-const int sensorIzq = 2;
-const int sensorDer = 3;
+// ===== ROLE SELECTION =====
+document.getElementById('btn-role-server').onclick = function () { enterRole('server'); };
+document.getElementById('btn-role-client').onclick = function () { enterRole('client'); };
 
-void setup() {
-  pinMode(motorIzqA, OUTPUT); pinMode(motorIzqB, OUTPUT);
-  pinMode(motorDerA, OUTPUT); pinMode(motorDerB, OUTPUT);
-  pinMode(sensorIzq, INPUT);  pinMode(sensorDer, INPUT);
-  Serial.begin(9600);
-}
+function enterRole(role) {
+    currentRole = role;
+    document.getElementById('splash').style.display = 'none';
+    document.getElementById('view-server').style.display = role === 'server' ? 'flex' : 'none';
+    document.getElementById('view-client').style.display = role === 'client' ? 'flex' : 'none';
 
-void loop() {
-  int valorIzq = digitalRead(sensorIzq);
-  int valorDer = digitalRead(sensorDer);
-  
-  // Tu Misión: Escribe la lógica para que el robot siga la línea negra.
-  // Ejemplo: Si el sensor izquierdo ve negro (HIGH), gira a la izquierda.
-  
-  if (valorIzq == HIGH && valorDer == LOW) {
-    // Girar Izquierda
-  } else if (valorIzq == LOW && valorDer == HIGH) {
-    // Girar Derecha
-  } else {
-    // Avanzar Recto
-  }
-}`,
+    // Connect WebSocket
+    WsClient.connect(role);
 
-    wall_avoider: `/* EXPERIMENTO B: EXPLORADOR ANTI-CHOQUES (HC-SR04) */
-// Pines de Motores
-const int motorIzqA = 5;
-const int motorIzqB = 6;
-const int motorDerA = 9;
-const int motorDerB = 10;
-
-// Pines del Sensor Ultrasónico (Ping)
-const int trigPin = 11;
-const int echoPin = 12;
-
-// LED de Alerta Visual
-const int ledAlerta = 13;
-
-long leerDistancia() {
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  long duracion = pulseIn(echoPin, HIGH);
-  return duracion * 0.034 / 2;
-}
-
-void setup() {
-  pinMode(motorIzqA, OUTPUT); pinMode(motorIzqB, OUTPUT);
-  pinMode(motorDerA, OUTPUT); pinMode(motorDerB, OUTPUT);
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
-  pinMode(ledAlerta, OUTPUT);
-  Serial.begin(9600);
-}
-
-void loop() {
-  long distancia = leerDistancia();
-  
-  if (distancia < 10 && distancia > 0) {
-    // ¡Obstáculo detectado!
-    digitalWrite(ledAlerta, HIGH);
-    // Tu Misión: Escribe el código para frenar, retroceder y girar.
-    
-  } else {
-    // Vía libre
-    digitalWrite(ledAlerta, LOW);
-    // Tu Misión: Escribe el código para avanzar a toda velocidad.
-    
-  }
-}`
-};
-
-// UI TABS
-const tabIde = document.getElementById('tab-ide');
-const tabFlasher = document.getElementById('tab-flasher');
-const tabSimulator = document.getElementById('tab-simulator');
-const viewIde = document.getElementById('view-ide');
-const viewFlasher = document.getElementById('view-flasher');
-const viewSimulator = document.getElementById('view-simulator');
-
-var allTabs = [tabIde, tabFlasher, tabSimulator];
-var allViews = [viewIde, viewFlasher, viewSimulator];
-
-function switchTab(target) {
-    allTabs.forEach(function (t) { t.classList.remove('active'); });
-    allViews.forEach(function (v) { v.style.display = 'none'; });
-
-    if (target === 'ide') {
-        tabIde.classList.add('active');
-        viewIde.style.display = 'flex';
-    } else if (target === 'flasher') {
-        tabFlasher.classList.add('active');
-        viewFlasher.style.display = 'flex';
-        pollCloudState();
-    } else if (target === 'simulator') {
-        tabSimulator.classList.add('active');
-        viewSimulator.style.display = 'flex';
-        if (window.RobotSimulator) {
-            window.RobotSimulator.init();
-            window.RobotSimulator.reset();
-        }
-    }
-}
-tabIde.onclick = function () { switchTab('ide'); };
-tabFlasher.onclick = function () { switchTab('flasher'); };
-tabSimulator.onclick = function () { switchTab('simulator'); };
-
-// Simulator Controls
-var btnSimStart = document.getElementById('btn-sim-start');
-var btnSimStop = document.getElementById('btn-sim-stop');
-var btnSimReset = document.getElementById('btn-sim-reset');
-var simModeSelect = document.getElementById('sim-mode');
-
-if (btnSimStart) {
-    btnSimStart.onclick = function () {
-        if (window.RobotSimulator) window.RobotSimulator.start();
-        logSerial('> Programa cargado. Robot en ejecución.', 'success');
-    };
-}
-if (btnSimStop) {
-    btnSimStop.onclick = function () {
-        if (window.RobotSimulator) window.RobotSimulator.stop();
-        logSerial('> Simulación detenida.', 'info');
-    };
-}
-if (btnSimReset) {
-    btnSimReset.onclick = function () {
-        if (window.RobotSimulator) window.RobotSimulator.reset();
-        logSerial('> Robot reiniciado.', 'info');
-    };
-}
-if (simModeSelect) {
-    simModeSelect.onchange = function (e) {
-        if (window.RobotSimulator) window.RobotSimulator.setMode(e.target.value);
-        logSerial('> Modo: ' + e.target.options[e.target.selectedIndex].text, 'info');
-    };
-}
-
-// Serial Monitor Helper
-var labSerialOutput = document.getElementById('lab-serial-output');
-function logSerial(msg, type) {
-    type = type || 'info';
-    if (labSerialOutput) {
-        labSerialOutput.innerHTML += '<div class="log log-' + type + '">' + msg + '</div>';
-        labSerialOutput.scrollTop = labSerialOutput.scrollHeight;
+    if (role === 'server') {
+        initServerView();
+    } else {
+        initClientView();
     }
 }
 
-// Serial Send
-var btnSerialSend = document.getElementById('btn-serial-send');
-var labSerialText = document.getElementById('lab-serial-text');
-if (btnSerialSend && labSerialText) {
-    btnSerialSend.onclick = function () {
-        var val = labSerialText.value.trim();
-        if (val) {
-            logSerial('>> ' + val, 'info');
-            logSerial('< Echo: ' + val, 'success');
-            labSerialText.value = '';
-        }
-    };
-    labSerialText.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') btnSerialSend.click();
-    });
-}
-
-// Directional Arrows
-var btnUp = document.getElementById('btn-arrow-up');
-var btnLeft = document.getElementById('btn-arrow-left');
-var btnRight = document.getElementById('btn-arrow-right');
-
-if (btnUp) {
-    btnUp.onclick = function () {
-        if (window.RobotSimulator && window.RobotSimulator.nudge) window.RobotSimulator.nudge('up');
-        logSerial('> Motor: Adelante', 'info');
-    };
-}
-if (btnLeft) {
-    btnLeft.onclick = function () {
-        if (window.RobotSimulator && window.RobotSimulator.nudge) window.RobotSimulator.nudge('left');
-        logSerial('> Motor: Giro izquierda', 'info');
-    };
-}
-if (btnRight) {
-    btnRight.onclick = function () {
-        if (window.RobotSimulator && window.RobotSimulator.nudge) window.RobotSimulator.nudge('right');
-        logSerial('> Motor: Giro derecha', 'info');
-    };
-}
-
-// A B C Program Buttons
-var btnProgA = document.getElementById('btn-prog-a');
-var btnProgB = document.getElementById('btn-prog-b');
-var btnProgC = document.getElementById('btn-prog-c');
-
-if (btnProgA) {
-    btnProgA.onclick = function () {
-        if (window.RobotSimulator) {
-            window.RobotSimulator.setMode('line_follower');
-            window.RobotSimulator.start();
-        }
-        if (simModeSelect) simModeSelect.value = 'line_follower';
-        logSerial('> Programa A: Seguidor de Línea', 'success');
-    };
-}
-if (btnProgB) {
-    btnProgB.onclick = function () {
-        if (window.RobotSimulator) {
-            window.RobotSimulator.setMode('wall_avoider');
-            window.RobotSimulator.start();
-        }
-        if (simModeSelect) simModeSelect.value = 'wall_avoider';
-        logSerial('> Programa B: Anti-Choques', 'success');
-    };
-}
-if (btnProgC) {
-    btnProgC.onclick = function () {
-        if (window.RobotSimulator) window.RobotSimulator.reset();
-        logSerial('> Programa C: Reset', 'info');
-    };
-}
-
-// LED Toggles
-var btnLed1 = document.getElementById('btn-led-1');
-var btnLed2 = document.getElementById('btn-led-2');
-
-if (btnLed1) {
-    btnLed1.onclick = function () {
-        btnLed1.classList.toggle('on');
-        logSerial('> LED 1: ' + (btnLed1.classList.contains('on') ? 'ON' : 'OFF'), 'info');
-    };
-}
-if (btnLed2) {
-    btnLed2.onclick = function () {
-        btnLed2.classList.toggle('on');
-        logSerial('> LED 2: ' + (btnLed2.classList.contains('on') ? 'ON' : 'OFF'), 'info');
-    };
-}
-
-// Camera / Sim Toggle
-var btnViewSim = document.getElementById('btn-view-sim');
-var btnViewCam = document.getElementById('btn-view-cam');
-var labCameraOverlay = document.getElementById('lab-camera-overlay');
-var labCameraIframe = document.getElementById('lab-camera-iframe');
-var simCanvas = document.getElementById('sim-canvas');
-
-if (btnViewSim && btnViewCam) {
-    btnViewSim.onclick = function () {
-        btnViewSim.classList.add('active');
-        btnViewCam.classList.remove('active');
-        if (simCanvas) simCanvas.style.display = 'block';
-        if (labCameraOverlay) labCameraOverlay.classList.add('hidden');
-    };
-    btnViewCam.onclick = function () {
-        btnViewCam.classList.add('active');
-        btnViewSim.classList.remove('active');
-        if (simCanvas) simCanvas.style.display = 'none';
-        if (labCameraOverlay) {
-            labCameraOverlay.classList.remove('hidden');
-            if (labCameraIframe && !labCameraIframe.src) {
-                labCameraIframe.src = 'https://meet.jit.si/arduino-remoto-lab#config.prejoinPageEnabled=false&config.startWithAudioMuted=true&config.disableDeepLinking=true';
-            }
-        }
-    };
-}
-
-
-// IDE VIEW LOGIC
-let editor;
-require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
-require(['vs/editor/editor.main'], function () {
-    editor = monaco.editor.create(document.getElementById('editor'), {
-        value: TEMPLATES.default, language: 'cpp', theme: 'vs-dark', automaticLayout: true
-    });
-});
-
-const ideConsole = document.getElementById('ide-console');
-const btnCompileSend = document.getElementById('btn-compile-send');
-
-const templateSelector = document.getElementById('template-selector');
-templateSelector.addEventListener('change', function (e) {
-    if (editor) {
-        editor.setValue(TEMPLATES[e.target.value]);
-        logIde('Plantilla "' + e.target.options[e.target.selectedIndex].text + '" cargada.', 'info');
-    }
-});
-
+// ===== LOGGING HELPERS =====
 function logIde(msg, type) {
     type = type || 'info';
-    ideConsole.innerHTML += '<div class="log log-' + type + '">' + msg + '</div>';
-    ideConsole.scrollTop = ideConsole.scrollHeight;
+    var el = document.getElementById('ide-console');
+    if (el) {
+        el.innerHTML += '<div class="log log-' + type + '">' + msg + '</div>';
+        el.scrollTop = el.scrollHeight;
+    }
 }
 
-btnCompileSend.onclick = async () => {
-    if (!editor) return;
-    const code = editor.getValue();
-    btnCompileSend.disabled = true;
-    logIde('Enviando código a Render Cloud...', 'info');
+function logSerial(msg, type) {
+    type = type || 'info';
+    var el = document.getElementById('server-serial-output');
+    if (el) {
+        el.innerHTML += '<div class="log log-' + type + '">' + msg + '</div>';
+        el.scrollTop = el.scrollHeight;
+    }
+}
 
-    try {
-        const res = await fetch('/api/arduino/compile', {
+function logClient(msg, type) {
+    type = type || 'info';
+    var el = document.getElementById('client-console');
+    if (el) {
+        el.innerHTML += '<div class="log log-' + type + '">' + msg + '</div>';
+        el.scrollTop = el.scrollHeight;
+    }
+}
+
+// ===== SERVER VIEW =====
+function initServerView() {
+    // Monaco Editor Setup
+    var editor;
+    var TEMPLATES = {
+        default: 'void setup() {\n  Serial.begin(9600);\n  Serial.println("Hello from Remote Lab");\n}\n\nvoid loop() {\n  delay(1000);\n  Serial.println("Ping");\n}',
+        line_follower: '#define ENA 5\n#define IN1 6\n#define IN2 7\n#define IN3 8\n#define IN4 9\n#define ENB 10\n#define IR_L A0\n#define IR_R A1\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(ENA, OUTPUT);\n  pinMode(IN1, OUTPUT);\n  pinMode(IN2, OUTPUT);\n  pinMode(IN3, OUTPUT);\n  pinMode(IN4, OUTPUT);\n  pinMode(ENB, OUTPUT);\n  Serial.println("Line Follower Ready");\n}\n\nvoid forward() {\n  analogWrite(ENA, 150);\n  analogWrite(ENB, 150);\n  digitalWrite(IN1, HIGH);\n  digitalWrite(IN2, LOW);\n  digitalWrite(IN3, HIGH);\n  digitalWrite(IN4, LOW);\n}\n\nvoid turnLeft() {\n  analogWrite(ENA, 100);\n  analogWrite(ENB, 150);\n  digitalWrite(IN1, LOW);\n  digitalWrite(IN2, HIGH);\n  digitalWrite(IN3, HIGH);\n  digitalWrite(IN4, LOW);\n}\n\nvoid turnRight() {\n  analogWrite(ENA, 150);\n  analogWrite(ENB, 100);\n  digitalWrite(IN1, HIGH);\n  digitalWrite(IN2, LOW);\n  digitalWrite(IN3, LOW);\n  digitalWrite(IN4, HIGH);\n}\n\nvoid stopMotors() {\n  analogWrite(ENA, 0);\n  analogWrite(ENB, 0);\n}\n\nvoid loop() {\n  int left = digitalRead(IR_L);\n  int right = digitalRead(IR_R);\n\n  if (left == LOW && right == LOW) forward();\n  else if (left == HIGH && right == LOW) turnLeft();\n  else if (left == LOW && right == HIGH) turnRight();\n  else stopMotors();\n\n  delay(50);\n}',
+        wall_avoider: '#define TRIG 12\n#define ECHO 13\n#define ENA 5\n#define IN1 6\n#define IN2 7\n#define IN3 8\n#define IN4 9\n#define ENB 10\n\nvoid setup() {\n  Serial.begin(9600);\n  pinMode(TRIG, OUTPUT);\n  pinMode(ECHO, INPUT);\n  pinMode(ENA, OUTPUT);\n  pinMode(IN1, OUTPUT);\n  pinMode(IN2, OUTPUT);\n  pinMode(IN3, OUTPUT);\n  pinMode(IN4, OUTPUT);\n  pinMode(ENB, OUTPUT);\n  Serial.println("Wall Avoider Ready");\n}\n\nlong getDistance() {\n  digitalWrite(TRIG, LOW);\n  delayMicroseconds(2);\n  digitalWrite(TRIG, HIGH);\n  delayMicroseconds(10);\n  digitalWrite(TRIG, LOW);\n  return pulseIn(ECHO, HIGH) / 58;\n}\n\nvoid forward() {\n  analogWrite(ENA, 150);\n  analogWrite(ENB, 150);\n  digitalWrite(IN1, HIGH);\n  digitalWrite(IN2, LOW);\n  digitalWrite(IN3, HIGH);\n  digitalWrite(IN4, LOW);\n}\n\nvoid turnRight() {\n  analogWrite(ENA, 150);\n  analogWrite(ENB, 150);\n  digitalWrite(IN1, HIGH);\n  digitalWrite(IN2, LOW);\n  digitalWrite(IN3, LOW);\n  digitalWrite(IN4, HIGH);\n}\n\nvoid stopMotors() {\n  analogWrite(ENA, 0);\n  analogWrite(ENB, 0);\n}\n\nvoid loop() {\n  long dist = getDistance();\n  Serial.println("dist:" + String(dist));\n\n  if (dist > 20) {\n    forward();\n  } else {\n    stopMotors();\n    delay(200);\n    turnRight();\n    delay(400);\n  }\n  delay(100);\n}'
+    };
+
+    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
+    require(['vs/editor/editor.main'], function () {
+        editor = monaco.editor.create(document.getElementById('editor'), {
+            value: TEMPLATES.default,
+            language: 'cpp',
+            theme: 'vs-dark',
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: "'JetBrains Mono', monospace",
+            lineNumbers: 'on',
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            padding: { top: 12 }
+        });
+    });
+
+    // Template selector
+    document.getElementById('template-selector').onchange = function (e) {
+        var t = TEMPLATES[e.target.value];
+        if (t && editor) editor.setValue(t);
+    };
+
+    // Compile and send
+    document.getElementById('btn-compile-send').onclick = function () {
+        if (!editor) return;
+        var code = editor.getValue();
+        logIde('Enviando código a Render Cloud...', 'info');
+
+        fetch('/api/arduino/compile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code })
-        });
-        const data = await res.json();
+            body: JSON.stringify({ code: code })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    logIde('Compilación exitosa.', 'success');
+                    logIde('Enviando .hex al hardware remoto...', 'info');
+                    // Send hex to client via WebSocket
+                    WsClient.send({ type: 'flash_hex', hex: data.hex });
+                    logIde('Hex enviado al cliente. Esperando flash...', 'info');
+                } else {
+                    logIde('Error de compilación:\\n' + (data.error || 'Error desconocido'), 'error');
+                }
+            })
+            .catch(function (e) {
+                logIde('Error de red: ' + e.message, 'error');
+            });
+    };
 
-        if (data.success) {
-            logIde(data.stdout, 'info');
-            logIde('COMPILACIÓN EXITOSA. Código subido a la nube. Pídele a tu amigo que revise la pestaña Flasher.', 'success');
-        } else {
-            logIde(data.error + ' ' + (data.details || ''), 'error');
+    // Arrow controls → send motor commands via WS
+    document.getElementById('btn-arrow-up').onclick = function () {
+        WsClient.send({ type: 'command', cmd: 'F' });
+        logSerial('> Motor: Adelante (F)', 'info');
+    };
+    document.getElementById('btn-arrow-left').onclick = function () {
+        WsClient.send({ type: 'command', cmd: 'L' });
+        logSerial('> Motor: Izquierda (L)', 'info');
+    };
+    document.getElementById('btn-arrow-right').onclick = function () {
+        WsClient.send({ type: 'command', cmd: 'R' });
+        logSerial('> Motor: Derecha (R)', 'info');
+    };
+
+    // A B C buttons
+    document.getElementById('btn-prog-a').onclick = function () {
+        WsClient.send({ type: 'command', cmd: 'A' });
+        logSerial('> Programa A enviado', 'success');
+    };
+    document.getElementById('btn-prog-b').onclick = function () {
+        WsClient.send({ type: 'command', cmd: 'B' });
+        logSerial('> Programa B enviado', 'success');
+    };
+    document.getElementById('btn-prog-c').onclick = function () {
+        WsClient.send({ type: 'command', cmd: 'S' });
+        logSerial('> STOP enviado', 'info');
+    };
+
+    // LED toggles
+    var led1 = document.getElementById('btn-led-1');
+    var led2 = document.getElementById('btn-led-2');
+    led1.onclick = function () {
+        led1.classList.toggle('on');
+        WsClient.send({ type: 'command', cmd: led1.classList.contains('on') ? '1' : '0' });
+    };
+    led2.onclick = function () {
+        led2.classList.toggle('on');
+        WsClient.send({ type: 'command', cmd: led2.classList.contains('on') ? '3' : '2' });
+    };
+
+    // Serial send
+    var serialInput = document.getElementById('server-serial-text');
+    document.getElementById('btn-serial-send').onclick = function () {
+        var val = serialInput.value.trim();
+        if (val) {
+            WsClient.send({ type: 'command', cmd: val });
+            logSerial('>> ' + val, 'info');
+            serialInput.value = '';
         }
-    } catch (e) {
-        logIde('Error de red: ' + e.message, 'error');
-    }
-    btnCompileSend.disabled = false;
-};
+    };
+    serialInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') document.getElementById('btn-serial-send').click();
+    });
 
-// FLASHER VIEW LOGIC
-const flasherConsole = document.getElementById('flasher-console');
-const btnFlash = document.getElementById('btn-web-flash');
-const syncStatus = document.getElementById('sync-status');
-const syncTime = document.getElementById('sync-time');
+    // Camera: auto-connect Jitsi for viewing
+    var camIframe = document.getElementById('server-cam-iframe');
+    var camPlaceholder = document.getElementById('server-cam-placeholder');
+    var jitsiUrl = 'https://meet.jit.si/arduino-remoto-lab#config.prejoinPageEnabled=false&config.startWithVideoMuted=true&config.startWithAudioMuted=true&config.disableDeepLinking=true';
+    camIframe.src = jitsiUrl;
+    camIframe.classList.remove('hidden');
+    camPlaceholder.style.display = 'none';
 
-let latestHexPayload = null;
-
-function logFlasher(msg, type) {
-    type = type || 'info';
-    flasherConsole.innerHTML += '<div class="log log-' + type + '">[WebSerial] ' + msg + '</div>';
-    flasherConsole.scrollTop = flasherConsole.scrollHeight;
-}
-
-// Convert Base64 to ArrayBuffer (Required for avrgirl)
-function base64ToArrayBuffer(base64) {
-    const binary_string = window.atob(base64);
-    const len = binary_string.length;
-    const bytes = new Uint8Array(len);
-    for (var i = 0; i < len; i++) {
-        bytes[i] = binary_string.charCodeAt(i);
-    }
-    return bytes.buffer;
-}
-
-async function pollCloudState() {
-    try {
-        const res = await fetch('/api/arduino/latest-hex');
-        const data = await res.json();
-        if (data.success && data.hex) {
-            latestHexPayload = data.hex;
-            const timeStr = new Date(data.timestamp).toLocaleTimeString();
-            syncStatus.className = 'badge bg-green';
-            syncStatus.textContent = 'Hex Depositado en Render -> LISTO';
-            syncTime.textContent = 'Último código recibido: ' + timeStr;
-            btnFlash.disabled = false;
-        } else {
-            syncStatus.className = 'badge bg-yellow';
-            syncStatus.textContent = 'Esperando nuevo código de la Nube...';
-            btnFlash.disabled = true;
-        }
-    } catch (e) { }
-}
-
-// Poll every 5s if Flasher tab is open
-setInterval(() => {
-    if (viewFlasher.style.display === 'flex') pollCloudState();
-}, 5000);
-
-btnFlash.onclick = async () => {
-    if (!latestHexPayload) return;
-
-    // Convertir el Hex Base64 en Buffer real
-    const arrayBuffer = base64ToArrayBuffer(latestHexPayload);
-
-    logFlasher('Iniciando Web Serial...', 'info');
-
-    try {
-        // El usuario tendrá que seleccionar el puerto en un popup nativo del navegador
-        const avrgirl = new window.Avrgirl({
-            board: 'uno',
-            debug: true
-        });
-
-        // Overriding avrgirl logger methods to pipe into our UI
-        avrgirl.connection._emit = avrgirl.connection.emit;
-
-        logFlasher('Por favor, selecciona el Arduino en la ventana que aparecerá arriba.', 'info');
-
-        // Flash the hex file
-        avrgirl.flash(arrayBuffer, (error) => {
-            if (error) {
-                logFlasher('Error de Flasheo: ' + error.message, 'error');
-                console.error(error);
+    // Listen for messages from client
+    WsClient.onMessage(function (msg) {
+        if (msg.type === 'peer_status') {
+            var dot = document.getElementById('server-peer-dot');
+            var txt = document.getElementById('server-peer-text');
+            if (msg.status === 'online') {
+                dot.className = 'status-dot online';
+                txt.textContent = 'Hardware conectado';
+                logIde('Hardware remoto conectado.', 'success');
             } else {
-                logFlasher('¡Flasheo Completado Exitosamente!', 'success');
+                dot.className = 'status-dot offline';
+                txt.textContent = 'Hardware desconectado';
+                logIde('Hardware remoto desconectado.', 'error');
             }
-        });
-
-    } catch (e) {
-        logFlasher('Error iniciando la interfaz serial: ' + e.message, 'error');
-    }
-};
-
-// ===== VIDEO SYSTEM =====
-var videoPip = document.getElementById('video-pip');
-var btnToggleVideo = document.getElementById('btn-toggle-video');
-var btnClosePip = document.getElementById('btn-close-pip');
-var btnConnectVideo = document.getElementById('btn-connect-video');
-var btnConnectVideoHw = document.getElementById('btn-connect-video-hw');
-var videoRoomInput = document.getElementById('video-room-name');
-var videoRoomInputHw = document.getElementById('video-room-name-hw');
-var videoIframeIde = document.getElementById('video-iframe-ide');
-var videoPlaceholderIde = document.getElementById('video-placeholder-ide');
-var videoIframeHw = document.getElementById('video-iframe-hw');
-var videoPlaceholderHw = document.getElementById('video-placeholder-hw');
-
-// Sync room names between both views
-videoRoomInput.addEventListener('input', function () {
-    videoRoomInputHw.value = videoRoomInput.value;
-});
-videoRoomInputHw.addEventListener('input', function () {
-    videoRoomInput.value = videoRoomInputHw.value;
-});
-
-// Toggle PiP panel
-btnToggleVideo.onclick = function () {
-    if (videoPip.classList.contains('hidden')) {
-        videoPip.classList.remove('hidden');
-        btnToggleVideo.classList.add('active');
-    } else {
-        videoPip.classList.add('hidden');
-        btnToggleVideo.classList.remove('active');
-    }
-};
-
-// Close PiP
-btnClosePip.onclick = function () {
-    videoPip.classList.add('hidden');
-    btnToggleVideo.classList.remove('active');
-};
-
-function buildJitsiUrl(roomName) {
-    var safeRoom = roomName.trim().replace(/\s+/g, '-').toLowerCase();
-    if (!safeRoom) safeRoom = 'arduino-remoto-lab';
-    return 'https://meet.jit.si/' + safeRoom + '#config.prejoinPageEnabled=false&config.startWithVideoMuted=false&config.startWithAudioMuted=true&config.disableDeepLinking=true&interfaceConfig.TOOLBAR_BUTTONS=["camera","chat","fullscreen","hangup"]&interfaceConfig.SHOW_JITSI_WATERMARK=false&interfaceConfig.DEFAULT_BACKGROUND="#0d1117"';
+        }
+        if (msg.type === 'serial_data') {
+            logSerial('< ' + msg.data, 'success');
+        }
+        if (msg.type === 'flash_status') {
+            logIde(msg.message, msg.success ? 'success' : 'error');
+        }
+        if (msg.type === 'ws_status') {
+            logIde('WebSocket: ' + msg.status, msg.status === 'connected' ? 'success' : 'error');
+        }
+    });
 }
 
-// Connect video in IDE PiP
-btnConnectVideo.onclick = function () {
-    var url = buildJitsiUrl(videoRoomInput.value);
-    videoIframeIde.src = url;
-    videoIframeIde.classList.remove('hidden');
-    videoPlaceholderIde.classList.add('hidden');
-    logIde('Cámara conectada a sala: ' + videoRoomInput.value, 'success');
-};
+// ===== CLIENT VIEW =====
+function initClientView() {
+    // Connect Arduino
+    document.getElementById('btn-connect-arduino').onclick = async function () {
+        try {
+            serialPort = await navigator.serial.requestPort();
+            await serialPort.open({ baudRate: 9600 });
+            serialWriter = serialPort.writable.getWriter();
+            serialReader = serialPort.readable.getReader();
 
-// Connect video in Hardware view
-btnConnectVideoHw.onclick = function () {
-    var url = buildJitsiUrl(videoRoomInputHw.value);
-    videoIframeHw.src = url;
-    videoIframeHw.classList.remove('hidden');
-    videoPlaceholderHw.classList.add('hidden');
-    logFlasher('Cámara conectada a sala: ' + videoRoomInputHw.value, 'success');
-};
+            document.getElementById('client-arduino-status').textContent = 'Conectado';
+            document.getElementById('client-arduino-status').className = 'badge bg-green';
+            logClient('Arduino conectado por USB.', 'success');
+
+            // Start reading serial data from Arduino
+            readSerial();
+        } catch (e) {
+            logClient('Error conectando Arduino: ' + e.message, 'error');
+        }
+    };
+
+    // Read serial data from Arduino and forward to server
+    async function readSerial() {
+        try {
+            while (true) {
+                var result = await serialReader.read();
+                if (result.done) break;
+                var text = new TextDecoder().decode(result.value);
+                logClient('< Arduino: ' + text.trim(), 'info');
+                WsClient.send({ type: 'serial_data', data: text.trim() });
+            }
+        } catch (e) {
+            logClient('Serial read error: ' + e.message, 'error');
+        }
+    }
+
+    // Write command to Arduino serial
+    async function writeToArduino(cmd) {
+        if (serialWriter) {
+            var data = new TextEncoder().encode(cmd + '\n');
+            await serialWriter.write(data);
+            logClient('> Comando recibido: ' + cmd, 'success');
+        } else {
+            logClient('Arduino no conectado. Comando ignorado: ' + cmd, 'error');
+        }
+    }
+
+    // Camera: connect Jitsi to share camera
+    document.getElementById('btn-connect-camera').onclick = function () {
+        var room = document.getElementById('client-room-name').value.trim() || 'arduino-remoto-lab';
+        var url = 'https://meet.jit.si/' + room + '#config.prejoinPageEnabled=false&config.startWithAudioMuted=true&config.disableDeepLinking=true';
+        var iframe = document.getElementById('client-cam-iframe');
+        iframe.src = url;
+        iframe.classList.remove('hidden');
+        logClient('Cámara conectada a sala: ' + room, 'success');
+    };
+
+    // Listen for messages from server
+    WsClient.onMessage(function (msg) {
+        if (msg.type === 'peer_status') {
+            var dot = document.getElementById('client-peer-dot');
+            var txt = document.getElementById('client-peer-text');
+            if (msg.status === 'online') {
+                dot.className = 'status-dot online';
+                txt.textContent = 'Programador conectado';
+                logClient('Programador remoto conectado.', 'success');
+            } else {
+                dot.className = 'status-dot offline';
+                txt.textContent = 'Programador desconectado';
+                logClient('Programador remoto desconectado.', 'error');
+            }
+        }
+
+        // Receive motor/serial commands from server → write to Arduino
+        if (msg.type === 'command') {
+            writeToArduino(msg.cmd);
+        }
+
+        // Receive hex file from server → flash Arduino
+        if (msg.type === 'flash_hex') {
+            logClient('Recibiendo archivo .hex del servidor...', 'info');
+            flashArduino(msg.hex);
+        }
+
+        if (msg.type === 'ws_status') {
+            logClient('WebSocket: ' + msg.status, msg.status === 'connected' ? 'success' : 'error');
+        }
+    });
+
+    // Flash Arduino with received hex
+    async function flashArduino(hexBase64) {
+        try {
+            logClient('Iniciando flash del Arduino...', 'info');
+
+            // Close serial reader/writer before flashing
+            if (serialReader) {
+                await serialReader.cancel();
+                serialReader.releaseLock();
+                serialReader = null;
+            }
+            if (serialWriter) {
+                serialWriter.releaseLock();
+                serialWriter = null;
+            }
+            if (serialPort) {
+                await serialPort.close();
+            }
+
+            // Decode hex from base64
+            var raw = atob(hexBase64);
+            var arr = new Uint8Array(raw.length);
+            for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+
+            var avrgirl = new AvrgirlArduino({
+                board: 'uno',
+                debug: true
+            });
+
+            avrgirl.flash(arr.buffer, function (error) {
+                if (error) {
+                    logClient('Error de flash: ' + error.message, 'error');
+                    WsClient.send({ type: 'flash_status', success: false, message: 'Flash error: ' + error.message });
+                } else {
+                    logClient('¡Flash completado exitosamente!', 'success');
+                    WsClient.send({ type: 'flash_status', success: true, message: '¡Flash completado!' });
+
+                    // Re-open serial after flash
+                    setTimeout(async function () {
+                        try {
+                            await serialPort.open({ baudRate: 9600 });
+                            serialWriter = serialPort.writable.getWriter();
+                            serialReader = serialPort.readable.getReader();
+                            logClient('Serial reconectado post-flash.', 'success');
+                            readSerial();
+                        } catch (e) {
+                            logClient('Error reconectando serial: ' + e.message, 'error');
+                        }
+                    }, 2000);
+                }
+            });
+        } catch (e) {
+            logClient('Error durante flash: ' + e.message, 'error');
+            WsClient.send({ type: 'flash_status', success: false, message: 'Error: ' + e.message });
+        }
+    }
+}
