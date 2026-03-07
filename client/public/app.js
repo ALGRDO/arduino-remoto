@@ -118,15 +118,16 @@ const ideConsole = document.getElementById('ide-console');
 const btnCompileSend = document.getElementById('btn-compile-send');
 
 const templateSelector = document.getElementById('template-selector');
-templateSelector.addEventListener('change', (e) => {
+templateSelector.addEventListener('change', function (e) {
     if (editor) {
         editor.setValue(TEMPLATES[e.target.value]);
-        logIde(\`Plantilla cargada exitosamente.\`, 'info');
+        logIde('Plantilla "' + e.target.options[e.target.selectedIndex].text + '" cargada.', 'info');
     }
 });
 
-function logIde(msg, type = 'info') {
-    ideConsole.innerHTML += \`<div class="log log-\${type}">\${msg}</div>\`;
+function logIde(msg, type) {
+    type = type || 'info';
+    ideConsole.innerHTML += '<div class="log log-' + type + '">' + msg + '</div>';
     ideConsole.scrollTop = ideConsole.scrollHeight;
 }
 
@@ -134,7 +135,7 @@ btnCompileSend.onclick = async () => {
     if (!editor) return;
     const code = editor.getValue();
     btnCompileSend.disabled = true;
-    logIde('Enviando código a Vercel Build Server...', 'info');
+    logIde('Enviando código a Render Cloud...', 'info');
 
     try {
         const res = await fetch('/api/arduino/compile', {
@@ -146,7 +147,7 @@ btnCompileSend.onclick = async () => {
 
         if (data.success) {
             logIde(data.stdout, 'info');
-            logIde('\\nCOMPILACIÓN EXITOSA. Código subido a la nube. Pídele a tu amigo que revise la pestaña Flasher.', 'success');
+            logIde('COMPILACIÓN EXITOSA. Código subido a la nube. Pídele a tu amigo que revise la pestaña Flasher.', 'success');
         } else {
             logIde(data.error + ' ' + (data.details || ''), 'error');
         }
@@ -164,8 +165,9 @@ const syncTime = document.getElementById('sync-time');
 
 let latestHexPayload = null;
 
-function logFlasher(msg, type = 'info') {
-    flasherConsole.innerHTML += \`<div class="log log-\${type}">[WebSerial] \${msg}</div>\`;
+function logFlasher(msg, type) {
+    type = type || 'info';
+    flasherConsole.innerHTML += '<div class="log log-' + type + '">[WebSerial] ' + msg + '</div>';
     flasherConsole.scrollTop = flasherConsole.scrollHeight;
 }
 
@@ -207,13 +209,11 @@ setInterval(() => {
 btnFlash.onclick = async () => {
     if (!latestHexPayload) return;
 
-    // Convertir el Hex Base64 en Buffer real que el bundle de browserify entiende (Avrgirl.Buffer global injection o ArrayBuffer crudo)
+    // Convertir el Hex Base64 en Buffer real
     const arrayBuffer = base64ToArrayBuffer(latestHexPayload);
 
     logFlasher('Iniciando Web Serial...', 'info');
 
-    // Invocamos Avrgirl desde el bundle exportado
-    // Necesitamos pasar explícitamente el buffer binario.
     try {
         // El usuario tendrá que seleccionar el puerto en un popup nativo del navegador
         const avrgirl = new window.Avrgirl({
@@ -226,7 +226,7 @@ btnFlash.onclick = async () => {
 
         logFlasher('Por favor, selecciona el Arduino en la ventana que aparecerá arriba.', 'info');
 
-        // El argumento requerido en Avrgirl para flashers web es pasarlo como "fileContents" en el flash.
+        // Flash the hex file
         avrgirl.flash(arrayBuffer, (error) => {
             if (error) {
                 logFlasher('Error de Flasheo: ' + error.message, 'error');
