@@ -4,73 +4,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arduino Cloud IDE</title>
+    <title>Arduino Remote Lab — Cloud IDE</title>
+    <meta name="description"
+        content="Programa y flashea un Arduino real desde tu navegador. Sin instalaciones. Zero config.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
-    <script src="avrgirl-bundle.js"></script> <!-- Browserify bundle containing avrgirl-arduino -->
+    <script src="avrgirl-bundle.js"></script>
 </head>
 
 <body>
     <header class="navbar">
         <div class="brand">
-            <span class="logo">🌌</span>
-            <span>Arduino Cloud IDE (Serverless)</span>
+            <div class="brand-icon">⚡</div>
+            <div class="brand-text">
+                <span class="brand-name">Arduino Remote Lab</span>
+                <span class="brand-sub">Cloud IDE · Zero Install</span>
+            </div>
         </div>
-        <div class="tabs">
-            <button id="tab-ide" class="tab active">💻 IDE Web (Programador)</button>
-            <button id="tab-flasher" class="tab">🔌 Hardware Flasher (Arduino Físico)</button>
+        <nav class="tabs">
+            <button id="tab-ide" class="tab active">
+                <span class="tab-icon">💻</span>
+                <span class="tab-label">IDE Web</span>
+            </button>
+            <button id="tab-flasher" class="tab">
+                <span class="tab-icon">🔌</span>
+                <span class="tab-label">Hardware Flasher</span>
+            </button>
+        </nav>
+        <div class="nav-status">
+            <span class="status-dot"></span>
+            <span class="status-text">Render Cloud</span>
         </div>
     </header>
 
     <main class="container">
         <!-- VISTA DE PROGRAMADOR -->
         <div id="view-ide" class="view active">
-            <div class="toolbar"
-                style="display: flex; gap: 10px; align-items: center; padding: 10px; background: #252526; border-bottom: 1px solid #333;">
-                <span style="flex-grow: 1;">Escribe código para la placa remota.</span>
-                <select id="template-selector"
-                    style="padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 4px;">
-                    <option value="default">✨ Plantilla: Básico (Blink)</option>
-                    <option value="line_follower">🤖 Robot: Seguidor de Línea (TCRT5000)</option>
-                    <option value="wall_avoider">🚓 Robot: Explorador Anti-Choques (Ping)</option>
-                </select>
-                <button id="btn-compile-send" class="btn btn-primary"
-                    style="display: flex; align-items: center; gap: 5px;">
-                    <svg viewBox="0 0 24 24" width="16" height="16">
-                        <path fill="currentColor" d="M5 20h14v-2H5v2zM12 2l-7 7h4v6h6V9h4l-7-7z" />
-                    </svg>
-                    Compilar y Enviar a la Nube
-                </button>
+            <div class="toolbar">
+                <div class="toolbar-left">
+                    <select id="template-selector" class="template-select">
+                        <option value="default">✨ Básico — Blink</option>
+                        <option value="line_follower">🤖 Robot — Seguidor de Línea</option>
+                        <option value="wall_avoider">🚓 Robot — Anti-Choques</option>
+                    </select>
+                </div>
+                <div class="toolbar-right">
+                    <button id="btn-compile-send" class="btn btn-compile">
+                        <svg viewBox="0 0 24 24" width="16" height="16">
+                            <path fill="currentColor"
+                                d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
+                        </svg>
+                        Compilar en la Nube
+                    </button>
+                </div>
             </div>
             <div class="editor-section">
                 <div id="editor" class="monaco-container"></div>
             </div>
             <div class="terminal-section">
-                <div class="terminal-header">Consola de Compilación en la Nube</div>
+                <div class="terminal-header">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span class="terminal-title">Consola de Compilación</span>
+                </div>
                 <div id="ide-console" class="terminal-content"></div>
             </div>
         </div>
 
-        <!-- VISTA DE HARDWARE (Para el Amigo) -->
+        <!-- VISTA DE HARDWARE -->
         <div id="view-flasher" class="view" style="display: none;">
             <div class="hw-panel">
-                <h2>Receptor de Hardware Web Serial</h2>
-                <p>Usa Google Chrome. No necesitas instalar nada más. Conecta tu Arduino por USB.</p>
-
-                <div class="state-card">
-                    <h3>Estado del Archivo Remoto:</h3>
-                    <div id="sync-status" class="badge bg-yellow">Sincronizando con la Nube...</div>
-                    <p class="small pt-2" id="sync-time">Último código recibido: Nunca</p>
+                <div class="hw-hero">
+                    <div class="hw-hero-icon">🔌</div>
+                    <h2>Receptor de Hardware</h2>
+                    <p class="hw-subtitle">Conecta tu Arduino por USB. Usa Google Chrome. No necesitas instalar nada.
+                    </p>
                 </div>
 
-                <div class="actions pt-3">
-                    <button id="btn-web-flash" class="btn btn-success btn-large" disabled>
-                        🔥 Seleccionar USB y Flashear Código
-                    </button>
+                <div class="hw-grid">
+                    <div class="state-card">
+                        <div class="state-card-header">
+                            <span class="state-card-icon">📡</span>
+                            <h3>Estado del Archivo Remoto</h3>
+                        </div>
+                        <div id="sync-status" class="badge bg-yellow">Sincronizando con la Nube...</div>
+                        <p class="small pt-2" id="sync-time">Último código recibido: Nunca</p>
+                    </div>
+
+                    <div class="state-card action-card">
+                        <div class="state-card-header">
+                            <span class="state-card-icon">⚡</span>
+                            <h3>Flashear al Arduino</h3>
+                        </div>
+                        <button id="btn-web-flash" class="btn btn-flash" disabled>
+                            🔥 Seleccionar USB y Flashear
+                        </button>
+                        <p class="small pt-2">Web Serial API · Chrome/Edge/Brave</p>
+                    </div>
                 </div>
 
-                <div class="terminal-section mt-4" style="height: 250px;">
-                    <div class="terminal-header">Actividad del Web Flasher</div>
+                <div class="terminal-section flasher-terminal">
+                    <div class="terminal-header">
+                        <span class="terminal-dot red"></span>
+                        <span class="terminal-dot yellow"></span>
+                        <span class="terminal-dot green"></span>
+                        <span class="terminal-title">Actividad del Web Flasher</span>
+                    </div>
                     <div id="flasher-console" class="terminal-content"></div>
                 </div>
             </div>
