@@ -744,6 +744,101 @@ body {
   margin-top: 12px;
 }
 
+/* ===== SIMULATOR ===== */
+.sim-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.sim-sidebar {
+  width: 240px;
+  padding: 20px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.sim-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sim-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sim-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sim-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sim-buttons .btn {
+  justify-content: center;
+}
+
+.sim-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.sim-info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.sim-info-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.sim-info-dot.green {
+  background: var(--green);
+}
+
+.sim-info-dot.blue {
+  background: var(--accent);
+}
+
+.sim-info-dot.red {
+  background: var(--red);
+}
+
+.sim-canvas-wrap {
+  flex: 1;
+  position: relative;
+  background: #111820;
+}
+
+.sim-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .navbar {
@@ -803,5 +898,21 @@ body {
 
   .video-iframe-hw {
     height: 200px;
+  }
+
+  .sim-container {
+    flex-direction: column;
+  }
+
+  .sim-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .sim-info {
+    display: none;
   }
 }

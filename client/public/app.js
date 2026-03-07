@@ -88,21 +88,64 @@ void loop() {
 // UI TABS
 const tabIde = document.getElementById('tab-ide');
 const tabFlasher = document.getElementById('tab-flasher');
+const tabSimulator = document.getElementById('tab-simulator');
 const viewIde = document.getElementById('view-ide');
 const viewFlasher = document.getElementById('view-flasher');
+const viewSimulator = document.getElementById('view-simulator');
+
+var allTabs = [tabIde, tabFlasher, tabSimulator];
+var allViews = [viewIde, viewFlasher, viewSimulator];
 
 function switchTab(target) {
+    allTabs.forEach(function (t) { t.classList.remove('active'); });
+    allViews.forEach(function (v) { v.style.display = 'none'; });
+
     if (target === 'ide') {
-        tabIde.classList.add('active'); tabFlasher.classList.remove('active');
-        viewIde.style.display = 'flex'; viewFlasher.style.display = 'none';
-    } else {
-        tabFlasher.classList.add('active'); tabIde.classList.remove('active');
-        viewFlasher.style.display = 'flex'; viewIde.style.display = 'none';
-        pollCloudState(); // Immediate sync trigger
+        tabIde.classList.add('active');
+        viewIde.style.display = 'flex';
+    } else if (target === 'flasher') {
+        tabFlasher.classList.add('active');
+        viewFlasher.style.display = 'flex';
+        pollCloudState();
+    } else if (target === 'simulator') {
+        tabSimulator.classList.add('active');
+        viewSimulator.style.display = 'flex';
+        if (window.RobotSimulator) {
+            window.RobotSimulator.init();
+            window.RobotSimulator.reset();
+        }
     }
 }
-tabIde.onclick = () => switchTab('ide');
-tabFlasher.onclick = () => switchTab('flasher');
+tabIde.onclick = function () { switchTab('ide'); };
+tabFlasher.onclick = function () { switchTab('flasher'); };
+tabSimulator.onclick = function () { switchTab('simulator'); };
+
+// Simulator Controls
+var btnSimStart = document.getElementById('btn-sim-start');
+var btnSimStop = document.getElementById('btn-sim-stop');
+var btnSimReset = document.getElementById('btn-sim-reset');
+var simModeSelect = document.getElementById('sim-mode');
+
+if (btnSimStart) {
+    btnSimStart.onclick = function () {
+        if (window.RobotSimulator) window.RobotSimulator.start();
+    };
+}
+if (btnSimStop) {
+    btnSimStop.onclick = function () {
+        if (window.RobotSimulator) window.RobotSimulator.stop();
+    };
+}
+if (btnSimReset) {
+    btnSimReset.onclick = function () {
+        if (window.RobotSimulator) window.RobotSimulator.reset();
+    };
+}
+if (simModeSelect) {
+    simModeSelect.onchange = function (e) {
+        if (window.RobotSimulator) window.RobotSimulator.setMode(e.target.value);
+    };
+}
 
 
 // IDE VIEW LOGIC

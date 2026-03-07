@@ -35,6 +35,10 @@
                 <span class="tab-icon">🔌</span>
                 <span class="tab-label">Hardware Flasher</span>
             </button>
+            <button id="tab-simulator" class="tab">
+                <span class="tab-icon">🤖</span>
+                <span class="tab-label">Simulador</span>
+            </button>
         </nav>
         <div class="nav-status">
             <span class="status-dot"></span>
@@ -163,8 +167,51 @@
                 </div>
             </div>
         </div>
+
+        <!-- VISTA DE SIMULADOR -->
+        <div id="view-simulator" class="view" style="display: none;">
+            <div class="sim-container">
+                <div class="sim-sidebar">
+                    <h3 class="sim-title">🤖 Simulador Visual</h3>
+                    <p class="small">Visualiza cómo se comportaría el robot con los algoritmos clásicos.</p>
+
+                    <div class="sim-controls">
+                        <label class="sim-label">Modo de Simulación</label>
+                        <select id="sim-mode" class="template-select">
+                            <option value="line_follower">🤖 Seguidor de Línea</option>
+                            <option value="wall_avoider">🚓 Explorador Anti-Choques</option>
+                        </select>
+                    </div>
+
+                    <div class="sim-buttons">
+                        <button id="btn-sim-start" class="btn btn-compile">▶ Iniciar</button>
+                        <button id="btn-sim-stop" class="btn btn-video">⏸ Pausar</button>
+                        <button id="btn-sim-reset" class="btn btn-video">🔄 Reiniciar</button>
+                    </div>
+
+                    <div class="sim-info">
+                        <div class="sim-info-item">
+                            <span class="sim-info-dot green"></span>
+                            <span>Rastro del robot</span>
+                        </div>
+                        <div class="sim-info-item">
+                            <span class="sim-info-dot blue"></span>
+                            <span>Sensores activos</span>
+                        </div>
+                        <div class="sim-info-item">
+                            <span class="sim-info-dot red"></span>
+                            <span>LED de alerta</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sim-canvas-wrap">
+                    <canvas id="sim-canvas"></canvas>
+                </div>
+            </div>
+        </div>
     </main>
 
+    <script src="simulator.js"></script>
     <script src="app.js"></script>
 </body>
 
