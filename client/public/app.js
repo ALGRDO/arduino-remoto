@@ -240,3 +240,65 @@ btnFlash.onclick = async () => {
         logFlasher('Error iniciando la interfaz serial: ' + e.message, 'error');
     }
 };
+
+// ===== VIDEO SYSTEM =====
+var videoPip = document.getElementById('video-pip');
+var btnToggleVideo = document.getElementById('btn-toggle-video');
+var btnClosePip = document.getElementById('btn-close-pip');
+var btnConnectVideo = document.getElementById('btn-connect-video');
+var btnConnectVideoHw = document.getElementById('btn-connect-video-hw');
+var videoRoomInput = document.getElementById('video-room-name');
+var videoRoomInputHw = document.getElementById('video-room-name-hw');
+var videoIframeIde = document.getElementById('video-iframe-ide');
+var videoPlaceholderIde = document.getElementById('video-placeholder-ide');
+var videoIframeHw = document.getElementById('video-iframe-hw');
+var videoPlaceholderHw = document.getElementById('video-placeholder-hw');
+
+// Sync room names between both views
+videoRoomInput.addEventListener('input', function () {
+    videoRoomInputHw.value = videoRoomInput.value;
+});
+videoRoomInputHw.addEventListener('input', function () {
+    videoRoomInput.value = videoRoomInputHw.value;
+});
+
+// Toggle PiP panel
+btnToggleVideo.onclick = function () {
+    if (videoPip.classList.contains('hidden')) {
+        videoPip.classList.remove('hidden');
+        btnToggleVideo.classList.add('active');
+    } else {
+        videoPip.classList.add('hidden');
+        btnToggleVideo.classList.remove('active');
+    }
+};
+
+// Close PiP
+btnClosePip.onclick = function () {
+    videoPip.classList.add('hidden');
+    btnToggleVideo.classList.remove('active');
+};
+
+function buildJitsiUrl(roomName) {
+    var safeRoom = roomName.trim().replace(/\s+/g, '-').toLowerCase();
+    if (!safeRoom) safeRoom = 'arduino-remoto-lab';
+    return 'https://meet.jit.si/' + safeRoom + '#config.prejoinPageEnabled=false&config.startWithVideoMuted=false&config.startWithAudioMuted=true&config.disableDeepLinking=true&interfaceConfig.TOOLBAR_BUTTONS=["camera","chat","fullscreen","hangup"]&interfaceConfig.SHOW_JITSI_WATERMARK=false&interfaceConfig.DEFAULT_BACKGROUND="#0d1117"';
+}
+
+// Connect video in IDE PiP
+btnConnectVideo.onclick = function () {
+    var url = buildJitsiUrl(videoRoomInput.value);
+    videoIframeIde.src = url;
+    videoIframeIde.classList.remove('hidden');
+    videoPlaceholderIde.classList.add('hidden');
+    logIde('Cámara conectada a sala: ' + videoRoomInput.value, 'success');
+};
+
+// Connect video in Hardware view
+btnConnectVideoHw.onclick = function () {
+    var url = buildJitsiUrl(videoRoomInputHw.value);
+    videoIframeHw.src = url;
+    videoIframeHw.classList.remove('hidden');
+    videoPlaceholderHw.classList.add('hidden');
+    logFlasher('Cámara conectada a sala: ' + videoRoomInputHw.value, 'success');
+};

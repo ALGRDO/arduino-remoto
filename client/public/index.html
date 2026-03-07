@@ -54,6 +54,9 @@
                     </select>
                 </div>
                 <div class="toolbar-right">
+                    <button id="btn-toggle-video" class="btn btn-video" title="Ver cámara en vivo">
+                        📹 Cámara
+                    </button>
                     <button id="btn-compile-send" class="btn btn-compile">
                         <svg viewBox="0 0 24 24" width="16" height="16">
                             <path fill="currentColor"
@@ -65,6 +68,27 @@
             </div>
             <div class="editor-section">
                 <div id="editor" class="monaco-container"></div>
+                <!-- Floating Video Panel (PiP) -->
+                <div id="video-pip" class="video-pip hidden">
+                    <div class="video-pip-header">
+                        <span>📹 Cámara en Vivo</span>
+                        <button id="btn-close-pip" class="video-pip-close">✕</button>
+                    </div>
+                    <div class="video-pip-body">
+                        <div id="video-placeholder-ide" class="video-placeholder">
+                            <span class="video-placeholder-icon">📹</span>
+                            <p>Ingresa el nombre de sala para conectar</p>
+                            <div class="video-room-input">
+                                <input type="text" id="video-room-name" class="input-room"
+                                    placeholder="Nombre de sala (ej: mi-arduino-lab)" value="arduino-remoto-lab">
+                                <button id="btn-connect-video" class="btn btn-compile btn-sm">Conectar</button>
+                            </div>
+                        </div>
+                        <iframe id="video-iframe-ide" class="video-iframe hidden"
+                            allow="camera; microphone; display-capture; autoplay; clipboard-write"
+                            allowfullscreen></iframe>
+                    </div>
+                </div>
             </div>
             <div class="terminal-section">
                 <div class="terminal-header">
@@ -107,6 +131,25 @@
                         </button>
                         <p class="small pt-2">Web Serial API · Chrome/Edge/Brave</p>
                     </div>
+                </div>
+
+                <!-- Video Card for Hardware View -->
+                <div class="state-card video-card">
+                    <div class="state-card-header">
+                        <span class="state-card-icon">📹</span>
+                        <h3>Cámara en Vivo</h3>
+                    </div>
+                    <p class="small" style="margin-bottom: 12px;">Comparte la cámara de tu celular para que el
+                        programador vea el Arduino/robot.</p>
+                    <div id="video-placeholder-hw" class="video-placeholder">
+                        <div class="video-room-input">
+                            <input type="text" id="video-room-name-hw" class="input-room" placeholder="Nombre de sala"
+                                value="arduino-remoto-lab">
+                            <button id="btn-connect-video-hw" class="btn btn-compile btn-sm">Conectar Video</button>
+                        </div>
+                    </div>
+                    <iframe id="video-iframe-hw" class="video-iframe-hw hidden"
+                        allow="camera; microphone; display-capture; autoplay; clipboard-write" allowfullscreen></iframe>
                 </div>
 
                 <div class="terminal-section flasher-terminal">
