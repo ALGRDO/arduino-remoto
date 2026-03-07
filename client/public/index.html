@@ -168,44 +168,108 @@
             </div>
         </div>
 
-        <!-- VISTA DE SIMULADOR -->
+        <!-- VISTA DE LABORATORIO REMOTO (LabsLand Style) -->
         <div id="view-simulator" class="view" style="display: none;">
-            <div class="sim-container">
-                <div class="sim-sidebar">
-                    <h3 class="sim-title">🤖 Simulador Visual</h3>
-                    <p class="small">Visualiza cómo se comportaría el robot con los algoritmos clásicos.</p>
+            <div class="lab-container">
+                <!-- LEFT PANEL: Program & Actions -->
+                <div class="lab-panel lab-panel-left">
+                    <h3 class="lab-panel-title">🤖 Tu Programa</h3>
 
-                    <div class="sim-controls">
-                        <label class="sim-label">Modo de Simulación</label>
-                        <select id="sim-mode" class="template-select">
+                    <div class="lab-card">
+                        <p class="lab-card-text">Selecciona una plantilla y presiona
+                            <strong>"Programar en el robot"</strong> para enviar tu código.
+                        </p>
+                        <select id="sim-mode" class="template-select" style="width:100%; margin-bottom:10px;">
                             <option value="line_follower">🤖 Seguidor de Línea</option>
-                            <option value="wall_avoider">🚓 Explorador Anti-Choques</option>
+                            <option value="wall_avoider">🚓 Anti-Choques</option>
                         </select>
+                        <button id="btn-sim-start" class="btn btn-compile" style="width:100%;">
+                            ⬆ Programar en el robot
+                        </button>
                     </div>
 
-                    <div class="sim-buttons">
-                        <button id="btn-sim-start" class="btn btn-compile">▶ Iniciar</button>
-                        <button id="btn-sim-stop" class="btn btn-video">⏸ Pausar</button>
-                        <button id="btn-sim-reset" class="btn btn-video">🔄 Reiniciar</button>
+                    <div class="lab-card">
+                        <button id="btn-sim-stop" class="btn btn-video" style="width:100%; margin-bottom:8px;">
+                            ⏸ Detener simulación
+                        </button>
+                        <button id="btn-sim-reset" class="btn btn-video" style="width:100%;">
+                            🔄 Reiniciar
+                        </button>
                     </div>
 
-                    <div class="sim-info">
-                        <div class="sim-info-item">
-                            <span class="sim-info-dot green"></span>
-                            <span>Rastro del robot</span>
+                    <div class="lab-card">
+                        <p class="lab-card-label">✏ Ver programas de ejemplo</p>
+                        <p class="small">Elige una plantilla arriba para cargar el código del experimento en el editor.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- CENTER: Camera + Controls -->
+                <div class="lab-center">
+                    <h2 class="lab-title">Robot Arduino</h2>
+
+                    <!-- Info banner -->
+                    <div class="lab-banner">
+                        Al principio, puedes mover el robot como quieras con las flechas.
+                        Después, puedes usar el panel de la izquierda para subir un programa al robot.
+                    </div>
+
+                    <!-- Camera / Simulation View -->
+                    <div class="lab-camera-wrap">
+                        <canvas id="sim-canvas"></canvas>
+                        <div id="lab-camera-overlay" class="lab-camera-overlay hidden">
+                            <iframe id="lab-camera-iframe" class="lab-camera-iframe"
+                                allow="camera; microphone; display-capture; autoplay; clipboard-write"
+                                allowfullscreen></iframe>
                         </div>
-                        <div class="sim-info-item">
-                            <span class="sim-info-dot blue"></span>
-                            <span>Sensores activos</span>
+                        <!-- Switch between sim canvas and live camera -->
+                        <div class="lab-camera-toggle">
+                            <button id="btn-view-sim" class="lab-view-btn active" title="Simulación">🤖 Sim</button>
+                            <button id="btn-view-cam" class="lab-view-btn" title="Cámara en Vivo">📹 Cámara</button>
                         </div>
-                        <div class="sim-info-item">
-                            <span class="sim-info-dot red"></span>
-                            <span>LED de alerta</span>
+                    </div>
+
+                    <!-- Controls Row -->
+                    <div class="lab-controls-row">
+                        <!-- Directional Arrows -->
+                        <div class="lab-arrows">
+                            <div class="lab-arrow-row">
+                                <button id="btn-arrow-up" class="lab-arrow-btn">⬆</button>
+                            </div>
+                            <div class="lab-arrow-row">
+                                <button id="btn-arrow-left" class="lab-arrow-btn">⬅</button>
+                                <button id="btn-arrow-right" class="lab-arrow-btn">➡</button>
+                            </div>
+                        </div>
+
+                        <!-- A B C Program Buttons -->
+                        <div class="lab-abc">
+                            <button id="btn-prog-a" class="lab-abc-btn">A</button>
+                            <button id="btn-prog-b" class="lab-abc-btn">B</button>
+                            <button id="btn-prog-c" class="lab-abc-btn">C</button>
+                        </div>
+
+                        <!-- LED Toggles -->
+                        <div class="lab-leds">
+                            <button id="btn-led-1" class="lab-led-btn" title="LED 1"></button>
+                            <button id="btn-led-2" class="lab-led-btn" title="LED 2"></button>
                         </div>
                     </div>
                 </div>
-                <div class="sim-canvas-wrap">
-                    <canvas id="sim-canvas"></canvas>
+
+                <!-- RIGHT PANEL: Serial Monitor -->
+                <div class="lab-panel lab-panel-right">
+                    <h3 class="lab-panel-title">📟 Monitor Serie</h3>
+                    <div class="lab-serial-output" id="lab-serial-output">
+                        <div class="log log-info">> Esperando datos del robot...</div>
+                    </div>
+                    <div class="lab-serial-input">
+                        <label class="small">Enviar:</label>
+                        <div class="lab-serial-send">
+                            <input type="text" id="lab-serial-text" class="input-room" placeholder="Comando...">
+                            <button id="btn-serial-send" class="btn btn-compile btn-sm">⬆</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

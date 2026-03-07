@@ -129,21 +129,152 @@ var simModeSelect = document.getElementById('sim-mode');
 if (btnSimStart) {
     btnSimStart.onclick = function () {
         if (window.RobotSimulator) window.RobotSimulator.start();
+        logSerial('> Programa cargado. Robot en ejecución.', 'success');
     };
 }
 if (btnSimStop) {
     btnSimStop.onclick = function () {
         if (window.RobotSimulator) window.RobotSimulator.stop();
+        logSerial('> Simulación detenida.', 'info');
     };
 }
 if (btnSimReset) {
     btnSimReset.onclick = function () {
         if (window.RobotSimulator) window.RobotSimulator.reset();
+        logSerial('> Robot reiniciado.', 'info');
     };
 }
 if (simModeSelect) {
     simModeSelect.onchange = function (e) {
         if (window.RobotSimulator) window.RobotSimulator.setMode(e.target.value);
+        logSerial('> Modo: ' + e.target.options[e.target.selectedIndex].text, 'info');
+    };
+}
+
+// Serial Monitor Helper
+var labSerialOutput = document.getElementById('lab-serial-output');
+function logSerial(msg, type) {
+    type = type || 'info';
+    if (labSerialOutput) {
+        labSerialOutput.innerHTML += '<div class="log log-' + type + '">' + msg + '</div>';
+        labSerialOutput.scrollTop = labSerialOutput.scrollHeight;
+    }
+}
+
+// Serial Send
+var btnSerialSend = document.getElementById('btn-serial-send');
+var labSerialText = document.getElementById('lab-serial-text');
+if (btnSerialSend && labSerialText) {
+    btnSerialSend.onclick = function () {
+        var val = labSerialText.value.trim();
+        if (val) {
+            logSerial('>> ' + val, 'info');
+            logSerial('< Echo: ' + val, 'success');
+            labSerialText.value = '';
+        }
+    };
+    labSerialText.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') btnSerialSend.click();
+    });
+}
+
+// Directional Arrows
+var btnUp = document.getElementById('btn-arrow-up');
+var btnLeft = document.getElementById('btn-arrow-left');
+var btnRight = document.getElementById('btn-arrow-right');
+
+if (btnUp) {
+    btnUp.onclick = function () {
+        if (window.RobotSimulator && window.RobotSimulator.nudge) window.RobotSimulator.nudge('up');
+        logSerial('> Motor: Adelante', 'info');
+    };
+}
+if (btnLeft) {
+    btnLeft.onclick = function () {
+        if (window.RobotSimulator && window.RobotSimulator.nudge) window.RobotSimulator.nudge('left');
+        logSerial('> Motor: Giro izquierda', 'info');
+    };
+}
+if (btnRight) {
+    btnRight.onclick = function () {
+        if (window.RobotSimulator && window.RobotSimulator.nudge) window.RobotSimulator.nudge('right');
+        logSerial('> Motor: Giro derecha', 'info');
+    };
+}
+
+// A B C Program Buttons
+var btnProgA = document.getElementById('btn-prog-a');
+var btnProgB = document.getElementById('btn-prog-b');
+var btnProgC = document.getElementById('btn-prog-c');
+
+if (btnProgA) {
+    btnProgA.onclick = function () {
+        if (window.RobotSimulator) {
+            window.RobotSimulator.setMode('line_follower');
+            window.RobotSimulator.start();
+        }
+        if (simModeSelect) simModeSelect.value = 'line_follower';
+        logSerial('> Programa A: Seguidor de Línea', 'success');
+    };
+}
+if (btnProgB) {
+    btnProgB.onclick = function () {
+        if (window.RobotSimulator) {
+            window.RobotSimulator.setMode('wall_avoider');
+            window.RobotSimulator.start();
+        }
+        if (simModeSelect) simModeSelect.value = 'wall_avoider';
+        logSerial('> Programa B: Anti-Choques', 'success');
+    };
+}
+if (btnProgC) {
+    btnProgC.onclick = function () {
+        if (window.RobotSimulator) window.RobotSimulator.reset();
+        logSerial('> Programa C: Reset', 'info');
+    };
+}
+
+// LED Toggles
+var btnLed1 = document.getElementById('btn-led-1');
+var btnLed2 = document.getElementById('btn-led-2');
+
+if (btnLed1) {
+    btnLed1.onclick = function () {
+        btnLed1.classList.toggle('on');
+        logSerial('> LED 1: ' + (btnLed1.classList.contains('on') ? 'ON' : 'OFF'), 'info');
+    };
+}
+if (btnLed2) {
+    btnLed2.onclick = function () {
+        btnLed2.classList.toggle('on');
+        logSerial('> LED 2: ' + (btnLed2.classList.contains('on') ? 'ON' : 'OFF'), 'info');
+    };
+}
+
+// Camera / Sim Toggle
+var btnViewSim = document.getElementById('btn-view-sim');
+var btnViewCam = document.getElementById('btn-view-cam');
+var labCameraOverlay = document.getElementById('lab-camera-overlay');
+var labCameraIframe = document.getElementById('lab-camera-iframe');
+var simCanvas = document.getElementById('sim-canvas');
+
+if (btnViewSim && btnViewCam) {
+    btnViewSim.onclick = function () {
+        btnViewSim.classList.add('active');
+        btnViewCam.classList.remove('active');
+        if (simCanvas) simCanvas.style.display = 'block';
+        if (labCameraOverlay) labCameraOverlay.classList.add('hidden');
+    };
+    btnViewCam.onclick = function () {
+        btnViewCam.classList.add('active');
+        btnViewSim.classList.remove('active');
+        if (simCanvas) simCanvas.style.display = 'none';
+        if (labCameraOverlay) {
+            labCameraOverlay.classList.remove('hidden');
+            if (labCameraIframe && !labCameraIframe.src) {
+                labCameraIframe.src = 'https://meet.jit.si/arduino-remoto-lab#config.prejoinPageEnabled=false&config.startWithAudioMuted=true&config.disableDeepLinking=true';
+            }
+        }
     };
 }
 

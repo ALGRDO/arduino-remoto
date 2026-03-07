@@ -744,99 +744,301 @@ body {
   margin-top: 12px;
 }
 
-/* ===== SIMULATOR ===== */
-.sim-container {
+/* ===== LABSLAND-STYLE LAB VIEW ===== */
+.lab-container {
   flex: 1;
   display: flex;
   overflow: hidden;
 }
 
-.sim-sidebar {
-  width: 240px;
-  padding: 20px;
+/* Side Panels */
+.lab-panel {
+  width: 220px;
+  padding: 16px;
   background: var(--bg-surface);
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
   overflow-y: auto;
 }
 
-.sim-title {
-  font-size: 16px;
+.lab-panel-left {
+  border-right: 1px solid var(--border);
+}
+
+.lab-panel-right {
+  border-left: 1px solid var(--border);
+}
+
+.lab-panel-title {
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
+  margin-bottom: 4px;
 }
 
-.sim-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.lab-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
 }
 
-.sim-label {
-  font-size: 12px;
+.lab-card-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.lab-card-label {
+  font-size: 13px;
   font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--text-primary);
+  margin-bottom: 6px;
 }
 
-.sim-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sim-buttons .btn {
-  justify-content: center;
-}
-
-.sim-info {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.sim-info-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.sim-info-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.sim-info-dot.green {
-  background: var(--green);
-}
-
-.sim-info-dot.blue {
-  background: var(--accent);
-}
-
-.sim-info-dot.red {
-  background: var(--red);
-}
-
-.sim-canvas-wrap {
+/* Center Area */
+.lab-center {
   flex: 1;
-  position: relative;
-  background: #111820;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 20px;
+  overflow-y: auto;
+  gap: 12px;
 }
 
-.sim-canvas-wrap canvas {
+.lab-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.lab-banner {
+  background: var(--accent-subtle);
+  border: 1px solid rgba(88, 166, 255, 0.25);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--accent-hover);
+  text-align: center;
+  line-height: 1.5;
+  max-width: 560px;
+  width: 100%;
+}
+
+/* Camera / Canvas Wrapper */
+.lab-camera-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  aspect-ratio: 4/3;
+  background: #000;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 2px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.lab-camera-wrap canvas {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.lab-camera-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.lab-camera-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.lab-camera-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 5;
+}
+
+.lab-view-btn {
+  background: rgba(13, 17, 23, 0.7);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--duration) var(--ease);
+  backdrop-filter: blur(8px);
+}
+
+.lab-view-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.lab-view-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Controls Row */
+.lab-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 8px 0;
+  max-width: 560px;
+  width: 100%;
+}
+
+/* Directional Arrows */
+.lab-arrows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.lab-arrow-row {
+  display: flex;
+  gap: 4px;
+}
+
+.lab-arrow-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(145deg, #2196F3, #1976D2);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(33, 150, 243, 0.35);
+  transition: all 0.15s var(--ease);
+}
+
+.lab-arrow-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 5px 16px rgba(33, 150, 243, 0.5);
+}
+
+.lab-arrow-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 4px rgba(33, 150, 243, 0.3);
+}
+
+/* A B C Buttons */
+.lab-abc {
+  display: flex;
+  gap: 8px;
+}
+
+.lab-abc-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(145deg, #29B6F6, #0288D1);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(2, 136, 209, 0.35);
+  transition: all 0.15s var(--ease);
+}
+
+.lab-abc-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 5px 16px rgba(2, 136, 209, 0.5);
+}
+
+.lab-abc-btn:active {
+  transform: scale(0.95);
+}
+
+/* LED Toggles */
+.lab-leds {
+  display: flex;
+  gap: 10px;
+}
+
+.lab-led-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: radial-gradient(circle at 35% 35%, #555, #333);
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.lab-led-btn:hover {
+  border-color: var(--accent);
+}
+
+.lab-led-btn.on {
+  background: radial-gradient(circle at 35% 35%, #ffeb3b, #ff9800);
+  border-color: #ff9800;
+  box-shadow: 0 0 16px rgba(255, 152, 0, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Serial Monitor */
+.lab-serial-output {
+  flex: 1;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  min-height: 200px;
+}
+
+.lab-serial-output::-webkit-scrollbar {
+  width: 4px;
+}
+
+.lab-serial-output::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.lab-serial-input {
+  margin-top: 8px;
+}
+
+.lab-serial-send {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.lab-serial-send .input-room {
+  flex: 1;
+  font-size: 12px;
 }
 
 /* ===== RESPONSIVE ===== */
@@ -900,19 +1102,41 @@ body {
     height: 200px;
   }
 
-  .sim-container {
+  .lab-container {
     flex-direction: column;
   }
 
-  .sim-sidebar {
+  .lab-panel {
     width: 100%;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 10px;
-    padding: 12px;
+    gap: 8px;
+    padding: 10px;
   }
 
-  .sim-info {
-    display: none;
+  .lab-panel-left,
+  .lab-panel-right {
+    border: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .lab-camera-wrap {
+    max-width: 100%;
+  }
+
+  .lab-controls-row {
+    gap: 16px;
+  }
+
+  .lab-arrow-btn {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+
+  .lab-abc-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 16px;
   }
 }

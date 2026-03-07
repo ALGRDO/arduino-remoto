@@ -416,12 +416,28 @@
         reset: function () {
             running = false;
             resetRobot();
-            draw();
+            if (canvas) draw();
         },
         setMode: function (m) {
             mode = m;
             resetRobot();
-            if (running) { /* keep running */ } else { draw(); }
+            if (!running && canvas) draw();
+        },
+        nudge: function (direction) {
+            if (!canvas) init();
+            var step = 12;
+            var turnStep = 0.3;
+            if (direction === 'up') {
+                robot.x += Math.cos(robot.angle) * step;
+                robot.y += Math.sin(robot.angle) * step;
+            } else if (direction === 'left') {
+                robot.angle -= turnStep;
+            } else if (direction === 'right') {
+                robot.angle += turnStep;
+            }
+            robot.trail.push({ x: robot.x, y: robot.y });
+            if (robot.trail.length > 500) robot.trail.shift();
+            if (!running) draw();
         },
         isRunning: function () { return running; },
         destroy: function () {
