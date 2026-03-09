@@ -91,17 +91,19 @@
     // ---- Try to reset Arduino via DTR pulse ----
     async function tryDtrReset(port) {
         try {
-            // Ensure DTR starts HIGH
+            console.log('[Flash] DTR: HIGH...');
             await port.setSignals({ dataTerminalReady: true, requestToSend: false });
             await new Promise(function (r) { setTimeout(r, 50); });
-            // Pulse DTR LOW → reset asserted
+            console.log('[Flash] DTR: LOW (reset)');
             await port.setSignals({ dataTerminalReady: false });
             await new Promise(function (r) { setTimeout(r, 50); });
-            // DTR HIGH → reset released, bootloader starts
+            console.log('[Flash] DTR: HIGH (release reset)');
             await port.setSignals({ dataTerminalReady: true });
+            console.log('[Flash] DTR reset OK');
             return true;
         } catch (e) {
-            return false; // setSignals not supported
+            console.warn('[Flash] DTR not supported:', e.message);
+            return false;
         }
     }
 
@@ -112,40 +114,52 @@
 
         // 1. Open at Optiboot baud (115200)
         onProgress('Abriendo puerto a 115200 baud...');
+        console.log('[Flash] Opening port at 115200...');
         await port.open({ baudRate: 115200 });
+        console.log('[Flash] Port opened OK');
 
-        // 3. Reset via DTR pulse (most reliable method)
+        // 2. Reset via DTR pulse
         onProgress('Reseteando Arduino...');
         var didDtr = await tryDtrReset(port);
+        console.log('[Flash] DTR reset done, supported:', didDtr);
         if (!didDtr) {
-            // Fallback: baud-cycle close/reopen triggers DTR on most USB-serial chips
+            // Fallback: baud-cycle close/reopen
+            console.log('[Flash] Using baud-cycle fallback reset...');
             await port.close();
             await new Promise(function (r) { setTimeout(r, 100); });
             await port.open({ baudRate: 115200 });
+            console.log('[Flash] Baud-cycle reopen done');
         }
 
-        // 4. Wait for bootloader to start
+        // 3. Wait for bootloader to start
         await new Promise(function (r) { setTimeout(r, 250); });
+        console.log('[Flash] Waited 250ms, starting sync...');
 
         var writer = port.writable.getWriter();
         var bq = createByteQueue(port);
 
         try {
-            // 5. Sync loop — up to 8 seconds total window
-            //    This covers both auto-reset AND manual button press
+            // 4. Sync loop — 8 second window
             onProgress('Sincronizando... (presiona RESET en el Arduino si tarda)');
             var synced = false;
-            var syncDeadline = Date.now() + 8000; // 8-second window
+            var syncDeadline = Date.now() + 8000;
+            var syncAttempts = 0;
 
             while (!synced && Date.now() < syncDeadline) {
+                bq.drain();
+                await writer.write(new Uint8Array([STK.GET_SYNC, STK.CRC_EOP]));
+                syncAttempts++;
                 try {
-                    bq.drain();
-                    await writer.write(new Uint8Array([STK.GET_SYNC, STK.CRC_EOP]));
                     var resp = await bq.readBytes(2, 200);
+                    console.log('[Flash] Sync attempt', syncAttempts, '→ bytes:', resp[0].toString(16), resp[1].toString(16));
                     if (resp[0] === STK.INSYNC && resp[1] === STK.OK) {
                         synced = true;
+                        console.log('[Flash] SYNCED after', syncAttempts, 'attempts!');
                     }
-                } catch (e) { /* no response yet */ }
+                } catch (e) {
+                    // no response yet, log every 5 attempts
+                    if (syncAttempts % 5 === 0) console.log('[Flash] Sync attempt', syncAttempts, '- no response yet');
+                }
                 if (!synced) await new Promise(function (r) { setTimeout(r, 80); });
             }
 
