@@ -1,6 +1,6 @@
-// ===== STK500 FLASH — Browser-Native Arduino Flasher v2 =====
-// Implements STK500v1 (Optiboot) protocol over Web Serial API
-// Compatible with Arduino Uno, Nano (ATmega328P with Optiboot)
+// ===== STK500 FLASH — Browser-Native Arduino Flasher v3 =====
+// Robust implementation with extended sync window + manual reset fallback
+// Compatible with Arduino Uno, Nano (ATmega328P + Optiboot)
 
 (function () {
     'use strict';
@@ -17,7 +17,7 @@
         PROG_PAGE: 0x64,
     };
 
-    var PAGE_SIZE = 128; // bytes — Optiboot / ATmega328P
+    var PAGE_SIZE = 128; // bytes — ATmega328P Optiboot page
 
     // ---- Intel HEX parser ----
     function parseHex(hexBase64) {
@@ -32,153 +32,187 @@
             var addr = parseInt(line.slice(3, 7), 16);
             var type = parseInt(line.slice(7, 9), 16);
             if (type !== 0) return;
-            for (var i = 0; i < len; i++) data[addr + i] = parseInt(line.slice(9 + i * 2, 11 + i * 2), 16);
+            for (var i = 0; i < len; i++)
+                data[addr + i] = parseInt(line.slice(9 + i * 2, 11 + i * 2), 16);
             if (addr + len > maxAddr) maxAddr = addr + len;
         });
-        maxAddr = Math.ceil(maxAddr / PAGE_SIZE) * PAGE_SIZE;
-        return { data: data, length: maxAddr };
+        return { data: data, length: Math.ceil(maxAddr / PAGE_SIZE) * PAGE_SIZE };
     }
 
-    // ---- Continuous reader that drains bytes into a queue ----
-    function createByteQueue(readable) {
+    // ---- Byte queue: continuous background reader ----
+    function createByteQueue(port) {
         var queue = [];
-        var reader = readable.getReader();
-        var done = false;
+        var reader = null;
+        var stopped = false;
 
-        (async function pump() {
-            try {
-                while (!done) {
-                    var result = await reader.read();
-                    if (result.done) break;
-                    for (var i = 0; i < result.value.length; i++) queue.push(result.value[i]);
-                }
-            } catch (e) { /* port closed */ }
-        })();
+        function startPump() {
+            reader = port.readable.getReader();
+            (async function pump() {
+                try {
+                    while (!stopped) {
+                        var res = await reader.read();
+                        if (res.done) break;
+                        for (var i = 0; i < res.value.length; i++) queue.push(res.value[i]);
+                    }
+                } catch (e) { /* port closed */ }
+            })();
+        }
+
+        startPump();
 
         return {
-            // Read exactly `n` bytes within `timeoutMs`
             readBytes: function (n, timeoutMs) {
                 return new Promise(function (resolve, reject) {
                     var deadline = Date.now() + timeoutMs;
                     function poll() {
-                        if (queue.length >= n) {
-                            resolve(queue.splice(0, n));
-                        } else if (Date.now() > deadline) {
-                            reject(new Error('Timeout esperando respuesta del bootloader (¿reinició el Arduino?)'));
-                        } else {
-                            setTimeout(poll, 5);
-                        }
+                        if (queue.length >= n) return resolve(queue.splice(0, n));
+                        if (Date.now() > deadline) return reject(new Error('timeout'));
+                        setTimeout(poll, 4);
                     }
                     poll();
                 });
             },
-            // Drain all buffered bytes immediately
             drain: function () { queue.length = 0; },
-            close: function () { done = true; try { reader.cancel(); reader.releaseLock(); } catch (e) { } }
+            stop: function () {
+                stopped = true;
+                if (reader) { try { reader.cancel(); reader.releaseLock(); } catch (e) { } reader = null; }
+            }
         };
     }
 
-    // ---- Send command, expect INSYNC + OK ----
-    async function cmd(writer, bq, bytes, timeoutMs) {
-        timeoutMs = timeoutMs || 1500;
+    // ---- Send STK500 command, expect INSYNC+OK ----
+    async function stk(writer, bq, bytes, timeoutMs) {
         await writer.write(new Uint8Array(bytes));
-        var resp = await bq.readBytes(2, timeoutMs);
-        if (resp[0] !== STK.INSYNC) throw new Error('No INSYNC (0x' + resp[0].toString(16) + '). Bootloader no responde.');
-        if (resp[1] !== STK.OK) throw new Error('No OK    (0x' + resp[1].toString(16) + ')');
+        var r = await bq.readBytes(2, timeoutMs || 2000);
+        if (r[0] !== STK.INSYNC) throw new Error('No INSYNC (0x' + r[0].toString(16) + ')');
+        if (r[1] !== STK.OK) throw new Error('No OK    (0x' + r[1].toString(16) + ')');
     }
 
-    // ---- Main flash function ----
+    // ---- Try to reset Arduino via DTR pulse ----
+    async function tryDtrReset(port) {
+        try {
+            // Ensure DTR starts HIGH
+            await port.setSignals({ dataTerminalReady: true, requestToSend: false });
+            await new Promise(function (r) { setTimeout(r, 50); });
+            // Pulse DTR LOW → reset asserted
+            await port.setSignals({ dataTerminalReady: false });
+            await new Promise(function (r) { setTimeout(r, 50); });
+            // DTR HIGH → reset released, bootloader starts
+            await port.setSignals({ dataTerminalReady: true });
+            return true;
+        } catch (e) {
+            return false; // setSignals not supported
+        }
+    }
+
+    // ---- Main flash entry point ----
     async function flash(port, hexBase64, onProgress) {
         onProgress = onProgress || function () { };
 
-        // 1. Close the port if already open so we can reopen cleanly
+        // 1. Close port cleanly
         onProgress('Preparando puerto...');
         try {
-            if (port.readable) port.readable.cancel().catch(function () { });
-            if (port.writable) port.writable.abort().catch(function () { });
+            if (port.readable) { try { port.readable.cancel(); } catch (e) { } }
+            if (port.writable) { try { port.writable.abort(); } catch (e) { } }
+            await new Promise(function (r) { setTimeout(r, 100); });
             await port.close();
-        } catch (e) { /* already closed */ }
+        } catch (e) { /* was already closed */ }
 
-        // 2. Open at 115200 (Optiboot baud)
+        // 2. Open at Optiboot baud (115200)
         await port.open({ baudRate: 115200 });
 
-        // 3. DTR reset: drive DTR low → high to trigger bootloader
-        onProgress('Reseteando Arduino (DTR)...');
-        try {
-            await port.setSignals({ dataTerminalReady: false });
-            await new Promise(function (r) { setTimeout(r, 50); });
-            await port.setSignals({ dataTerminalReady: true });
-        } catch (e) {
-            // setSignals not available on all platforms, fallback: baud-cycle reset
-            try { await port.close(); } catch (e2) { }
-            await new Promise(function (r) { setTimeout(r, 50); });
+        // 3. Reset via DTR pulse (most reliable method)
+        onProgress('Reseteando Arduino...');
+        var didDtr = await tryDtrReset(port);
+        if (!didDtr) {
+            // Fallback: baud-cycle close/reopen triggers DTR on most USB-serial chips
+            await port.close();
+            await new Promise(function (r) { setTimeout(r, 100); });
             await port.open({ baudRate: 115200 });
         }
 
-        // Wait for bootloader to start (~300ms)
-        await new Promise(function (r) { setTimeout(r, 300); });
+        // 4. Wait for bootloader to start
+        await new Promise(function (r) { setTimeout(r, 250); });
 
         var writer = port.writable.getWriter();
-        var bq = createByteQueue(port.readable);
+        var bq = createByteQueue(port);
 
         try {
-            // 4. Sync loop: send GET_SYNC until bootloader responds
-            onProgress('Sincronizando con bootloader...');
+            // 5. Sync loop — up to 8 seconds total window
+            //    This covers both auto-reset AND manual button press
+            onProgress('Sincronizando... (presiona RESET en el Arduino si tarda)');
             var synced = false;
-            for (var attempt = 0; attempt < 10 && !synced; attempt++) {
-                try {
-                    bq.drain(); // discard any garbage from user program
-                    await writer.write(new Uint8Array([STK.GET_SYNC, STK.CRC_EOP]));
-                    var resp = await bq.readBytes(2, 250);
-                    if (resp[0] === STK.INSYNC && resp[1] === STK.OK) synced = true;
-                } catch (e) { /* no response yet, retry */ }
-                if (!synced) await new Promise(function (r) { setTimeout(r, 100); });
-            }
-            if (!synced) throw new Error('Sin respuesta del bootloader. ¿Está conectado el Arduino? Intenta presionar RESET.');
+            var syncDeadline = Date.now() + 8000; // 8-second window
 
-            // 5. Drain any leftover bytes before issuing commands
+            while (!synced && Date.now() < syncDeadline) {
+                try {
+                    bq.drain();
+                    await writer.write(new Uint8Array([STK.GET_SYNC, STK.CRC_EOP]));
+                    var resp = await bq.readBytes(2, 200);
+                    if (resp[0] === STK.INSYNC && resp[1] === STK.OK) {
+                        synced = true;
+                    }
+                } catch (e) { /* no response yet */ }
+                if (!synced) await new Promise(function (r) { setTimeout(r, 80); });
+            }
+
+            if (!synced) {
+                throw new Error(
+                    'No responde el bootloader.\n' +
+                    '→ Presiona el botón RESET físico del Arduino mientras el flasher intenta sincronizar.'
+                );
+            }
+
+            // 6. Flush any extra bytes before issuing commands
+            await new Promise(function (r) { setTimeout(r, 50); });
             bq.drain();
 
-            // 6. SET_DEVICE (20-byte device params for ATmega328P)
-            onProgress('Configurando dispositivo...');
-            await cmd(writer, bq, [
+            // 7. SET_DEVICE (ATmega328P parameters)
+            onProgress('Configurando ATmega328P...');
+            await stk(writer, bq, [
                 STK.SET_DEVICE,
-                0x86, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x03, 0xFF, 0xFF,
-                0xFF, 0xFF, 0x00, 0x80, 0x04, 0x00, 0x00, 0x00, 0x80,
+                0x86, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x03,
+                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x80, 0x04, 0x00,
+                0x00, 0x00, 0x80,
                 STK.CRC_EOP
             ]);
 
-            // 7. ENTER_PROG
-            await cmd(writer, bq, [STK.ENTER_PROG, STK.CRC_EOP]);
+            // 8. ENTER_PROG
+            await stk(writer, bq, [STK.ENTER_PROG, STK.CRC_EOP]);
 
-            // 8. Program each 128-byte page
+            // 9. Write pages
             var parsed = parseHex(hexBase64);
             var totalPages = Math.ceil(parsed.length / PAGE_SIZE);
             onProgress('Flasheando ' + totalPages + ' páginas...');
 
-            for (var page = 0; page < totalPages; page++) {
-                var wordAddr = (page * PAGE_SIZE) / 2;
-                // LOAD_ADDRESS (word address, little-endian)
-                await cmd(writer, bq, [
+            for (var p = 0; p < totalPages; p++) {
+                var wordAddr = (p * PAGE_SIZE) / 2;
+
+                await stk(writer, bq, [
                     STK.LOAD_ADDRESS,
                     wordAddr & 0xFF, (wordAddr >> 8) & 0xFF,
                     STK.CRC_EOP
-                ], 1500);
+                ], 2000);
 
-                // PROG_PAGE: type 'F' = Flash
-                var pageBytes = Array.from(parsed.data.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE));
-                var progCmd = [STK.PROG_PAGE, 0x00, PAGE_SIZE, 0x46].concat(pageBytes).concat([STK.CRC_EOP]);
-                await cmd(writer, bq, progCmd, 3000); // 3s for flash write
+                var pageData = Array.from(
+                    parsed.data.slice(p * PAGE_SIZE, p * PAGE_SIZE + PAGE_SIZE)
+                );
+                await stk(writer, bq,
+                    [STK.PROG_PAGE, 0x00, PAGE_SIZE, 0x46].concat(pageData).concat([STK.CRC_EOP]),
+                    4000  // 4s for flash write
+                );
 
-                onProgress('Flasheando: ' + Math.round((page + 1) / totalPages * 100) + '%');
+                if (p % 8 === 0 || p === totalPages - 1) {
+                    onProgress('Flasheando: ' + Math.round((p + 1) / totalPages * 100) + '% (' + (p + 1) + '/' + totalPages + ')');
+                }
             }
 
-            // 9. LEAVE_PROG → resets into user sketch
-            await cmd(writer, bq, [STK.LEAVE_PROG, STK.CRC_EOP]);
-            onProgress('¡Flash completo! El Arduino reinicia...');
+            // 10. Leave prog mode — Arduino boots into sketch
+            await stk(writer, bq, [STK.LEAVE_PROG, STK.CRC_EOP]);
+            onProgress('¡Flash completo! El Arduino reinicia con el nuevo programa.');
 
         } finally {
-            bq.close();
+            bq.stop();
             try { writer.releaseLock(); } catch (e) { }
         }
     }
