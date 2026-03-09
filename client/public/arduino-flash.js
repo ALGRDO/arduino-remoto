@@ -106,19 +106,12 @@
     }
 
     // ---- Main flash entry point ----
+    // Assumes port is already CLOSED when called (app.js handles teardown)
     async function flash(port, hexBase64, onProgress) {
         onProgress = onProgress || function () { };
 
-        // 1. Close port cleanly
-        onProgress('Preparando puerto...');
-        try {
-            if (port.readable) { try { port.readable.cancel(); } catch (e) { } }
-            if (port.writable) { try { port.writable.abort(); } catch (e) { } }
-            await new Promise(function (r) { setTimeout(r, 100); });
-            await port.close();
-        } catch (e) { /* was already closed */ }
-
-        // 2. Open at Optiboot baud (115200)
+        // 1. Open at Optiboot baud (115200)
+        onProgress('Abriendo puerto a 115200 baud...');
         await port.open({ baudRate: 115200 });
 
         // 3. Reset via DTR pulse (most reliable method)

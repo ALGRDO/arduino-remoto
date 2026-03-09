@@ -354,9 +354,14 @@ function initClientView() {
         try {
             logClient('Iniciando flash del Arduino...', 'info');
 
-            // Release serial locks before flash (ArduinoFlash will reopen the port)
+            if (!serialPort) {
+                throw new Error('Conecta el Arduino primero antes de flashear.');
+            }
+
+            // Step 1: Stop the serial reader loop and release all locks
             if (serialReader) {
-                try { await serialReader.cancel(); serialReader.releaseLock(); } catch (e) { }
+                try { await serialReader.cancel(); } catch (e) { }
+                try { serialReader.releaseLock(); } catch (e) { }
                 serialReader = null;
             }
             if (serialWriter) {
@@ -364,11 +369,13 @@ function initClientView() {
                 serialWriter = null;
             }
 
-            if (!serialPort) {
-                throw new Error('Conecta el Arduino primero antes de flashear.');
-            }
+            // Step 2: Wait a tick for the readSerial loop to exit, then close the port
+            await new Promise(function (r) { setTimeout(r, 100); });
+            try { await serialPort.close(); } catch (e) { }
 
-            // Use our browser-native STK500 flasher
+            logClient('Puerto cerrado. Iniciando secuencia de flash...', 'info');
+
+            // Step 3: Flash — port is now fully closed and ready
             await ArduinoFlash.flash(serialPort, hexBase64, function (progress) {
                 logClient(progress, 'info');
             });
@@ -376,18 +383,17 @@ function initClientView() {
             logClient('¡Flash completado exitosamente!', 'success');
             WsClient.send({ type: 'flash_status', success: true, message: '¡Flash completado!' });
 
-            // Re-open serial after flash for motor commands
-            setTimeout(async function () {
-                try {
-                    await serialPort.open({ baudRate: 9600 });
-                    serialWriter = serialPort.writable.getWriter();
-                    serialReader = serialPort.readable.getReader();
-                    logClient('Serial reconectado a 9600 baud post-flash.', 'success');
-                    readSerial();
-                } catch (e) {
-                    logClient('Error reconectando serial: ' + e.message, 'error');
-                }
-            }, 1500);
+            // Step 4: Reopen serial at 9600 for motor commands
+            await new Promise(function (r) { setTimeout(r, 1500); });
+            try {
+                await serialPort.open({ baudRate: 9600 });
+                serialWriter = serialPort.writable.getWriter();
+                serialReader = serialPort.readable.getReader();
+                logClient('Serial reconectado a 9600 baud.', 'success');
+                readSerial();
+            } catch (e) {
+                logClient('Error reconectando serial: ' + e.message, 'error');
+            }
 
         } catch (e) {
             logClient('Error durante flash: ' + e.message, 'error');
