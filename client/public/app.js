@@ -170,41 +170,19 @@ function initServerView() {
         if (e.key === 'Enter') document.getElementById('btn-serial-send').click();
     });
 
-    // ===== WebRTC: Server receives stream from Client =====
-    var serverPc = null;
-
-    function initServerWebRTC() {
-        var ICE_SERVERS = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:openrelay.metered.ca:80' },
-                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-                { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-            ]
-        };
-        serverPc = new RTCPeerConnection(ICE_SERVERS);
-
-        serverPc.ontrack = function (event) {
-            var video = document.getElementById('server-cam-video');
-            var placeholder = document.getElementById('server-cam-placeholder');
-            if (event.streams && event.streams[0]) {
-                video.srcObject = event.streams[0];
-                video.classList.remove('hidden');
-                placeholder.style.display = 'none';
-                logIde('📹 Cámara del hardware conectada.', 'success');
-            }
-        };
-
-        serverPc.onicecandidate = function (event) {
-            if (event.candidate) {
-                WsClient.send({ type: 'webrtc_ice', candidate: event.candidate, from: 'server' });
-            }
-        };
-
-        serverPc.onconnectionstatechange = function () {
-            logIde('WebRTC: ' + serverPc.connectionState, 'info');
-        };
+    // ===== Camera: receive JPEG frames from client via WebSocket =====
+    function showCameraFrame(dataUrl) {
+        var img = document.getElementById('server-cam-video');
+        var placeholder = document.getElementById('server-cam-placeholder');
+        if (img.tagName === 'VIDEO') {
+            // swap to img dynamically if needed - handled in HTML
+        }
+        img.src = dataUrl;
+        if (img.classList.contains('hidden')) {
+            img.classList.remove('hidden');
+            placeholder.style.display = 'none';
+            logIde('\ud83d\udcf9 C\u00e1mara del hardware conectada.', 'success');
+        }
     }
 
     // Listen for messages from client
@@ -220,31 +198,15 @@ function initServerView() {
                 dot.className = 'status-dot offline';
                 txt.textContent = 'Hardware desconectado';
                 logIde('Hardware remoto desconectado.', 'error');
-                if (serverPc) { serverPc.close(); serverPc = null; }
-                var video = document.getElementById('server-cam-video');
-                video.srcObject = null;
-                video.classList.add('hidden');
+                var img = document.getElementById('server-cam-video');
+                img.src = '';
+                img.classList.add('hidden');
                 document.getElementById('server-cam-placeholder').style.display = '';
             }
         }
 
-        // WebRTC signaling: receive offer from client, answer it
-        if (msg.type === 'webrtc_offer') {
-            initServerWebRTC();
-            serverPc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
-                .then(function () { return serverPc.createAnswer(); })
-                .then(function (answer) {
-                    return serverPc.setLocalDescription(answer).then(function () { return answer; });
-                })
-                .then(function (answer) {
-                    WsClient.send({ type: 'webrtc_answer', sdp: answer });
-                })
-                .catch(function (e) { logIde('WebRTC answer error: ' + e.message, 'error'); });
-        }
-
-        if (msg.type === 'webrtc_ice' && msg.from !== 'server' && serverPc) {
-            serverPc.addIceCandidate(new RTCIceCandidate(msg.candidate))
-                .catch(function (e) { console.warn('ICE error', e); });
+        if (msg.type === 'video_frame') {
+            showCameraFrame(msg.data);
         }
 
         if (msg.type === 'serial_data') {
@@ -306,55 +268,52 @@ function initClientView() {
         }
     }
 
-    // ===== WebRTC: Client sends camera stream to Server =====
-    var clientPc = null;
-    var localStream = null;
+    // ===== Camera: stream JPEG frames to server via WebSocket =====
+    var camStream = null;
+    var camCanvas = null;
+    var camCtx = null;
+    var camInterval = null;
+    var FPS = 10;
 
     document.getElementById('btn-connect-camera').onclick = async function () {
         try {
-            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            // If already streaming, stop
+            if (camInterval) {
+                clearInterval(camInterval);
+                camInterval = null;
+                if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
+                document.getElementById('client-cam-preview').classList.add('hidden');
+                document.getElementById('btn-connect-camera').textContent = '\ud83d\udcf9 Compartir C\u00e1mara';
+                logClient('C\u00e1mara detenida.', 'info');
+                return;
+            }
+
+            camStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: false });
 
             // Show local preview
             var preview = document.getElementById('client-cam-preview');
-            preview.srcObject = localStream;
+            preview.srcObject = camStream;
             preview.classList.remove('hidden');
 
-            logClient('Cámara local activada. Conectando con el programador...', 'success');
+            // Create offscreen canvas for frame capture
+            camCanvas = document.createElement('canvas');
+            camCanvas.width = 320;
+            camCanvas.height = 240;
+            camCtx = camCanvas.getContext('2d');
 
-            var ICE_SERVERS = {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:openrelay.metered.ca:80' },
-                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-                    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-                ]
-            };
-            clientPc = new RTCPeerConnection(ICE_SERVERS);
+            document.getElementById('btn-connect-camera').textContent = '\u23f9 Detener C\u00e1mara';
+            logClient('\ud83d\udcf9 Transmitiendo c\u00e1mara al programador (' + FPS + ' fps)...', 'success');
 
-            // Add all video tracks to the peer connection
-            localStream.getTracks().forEach(function (track) {
-                clientPc.addTrack(track, localStream);
-            });
-
-            clientPc.onicecandidate = function (event) {
-                if (event.candidate) {
-                    WsClient.send({ type: 'webrtc_ice', candidate: event.candidate, from: 'client' });
-                }
-            };
-
-            clientPc.onconnectionstatechange = function () {
-                logClient('WebRTC: ' + clientPc.connectionState, 'info');
-            };
-
-            // Create offer and send to server
-            var offer = await clientPc.createOffer();
-            await clientPc.setLocalDescription(offer);
-            WsClient.send({ type: 'webrtc_offer', sdp: clientPc.localDescription });
-            logClient('Oferta WebRTC enviada al programador.', 'info');
+            // Send frames at FPS rate via WebSocket
+            camInterval = setInterval(function () {
+                if (!camStream || !camCtx) return;
+                camCtx.drawImage(preview, 0, 0, 320, 240);
+                var dataUrl = camCanvas.toDataURL('image/jpeg', 0.5);
+                WsClient.send({ type: 'video_frame', data: dataUrl });
+            }, 1000 / FPS);
 
         } catch (e) {
-            logClient('Error cámara: ' + e.message, 'error');
+            logClient('Error c\u00e1mara: ' + e.message, 'error');
         }
     };
 
@@ -372,18 +331,6 @@ function initClientView() {
                 txt.textContent = 'Programador desconectado';
                 logClient('Programador remoto desconectado.', 'error');
             }
-        }
-
-        // WebRTC signaling: receive answer from server
-        if (msg.type === 'webrtc_answer' && clientPc) {
-            clientPc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
-                .then(function () { logClient('WebRTC establecido con el programador.', 'success'); })
-                .catch(function (e) { logClient('WebRTC answer error: ' + e.message, 'error'); });
-        }
-
-        if (msg.type === 'webrtc_ice' && msg.from !== 'client' && clientPc) {
-            clientPc.addIceCandidate(new RTCIceCandidate(msg.candidate))
-                .catch(function (e) { console.warn('ICE error', e); });
         }
 
         // Receive motor/serial commands from server → write to Arduino
