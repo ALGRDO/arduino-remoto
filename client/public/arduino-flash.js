@@ -174,18 +174,22 @@
             await new Promise(function (r) { setTimeout(r, 50); });
             bq.drain();
 
-            // 7. SET_DEVICE (ATmega328P parameters)
+            // 7. SET_DEVICE (ATmega328P — Optiboot expects exactly 20 param bytes via getNch(20))
             onProgress('Configurando ATmega328P...');
+            console.log('[Flash] Sending SET_DEVICE (20 params)...');
             await stk(writer, bq, [
                 STK.SET_DEVICE,
-                0x86, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x03,
-                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x80, 0x04, 0x00,
-                0x00, 0x00, 0x80,
+                0x86, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x03, // 8
+                0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x80, 0x04, 0x00, // 8 (page=128, eeprom=1024)
+                0x00, 0x00, 0x80, 0x00,                         // 4 (flash=32768) → total 20
                 STK.CRC_EOP
             ]);
+            console.log('[Flash] SET_DEVICE OK');
 
             // 8. ENTER_PROG
+            console.log('[Flash] Sending ENTER_PROG...');
             await stk(writer, bq, [STK.ENTER_PROG, STK.CRC_EOP]);
+            console.log('[Flash] ENTER_PROG OK');
 
             // 9. Write pages
             var parsed = parseHex(hexBase64);

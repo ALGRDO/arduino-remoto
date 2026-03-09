@@ -258,6 +258,8 @@ function initClientView() {
     }
 
     // Write command to Arduino serial
+    var isFlashing = false;
+
     async function writeToArduino(cmd) {
         if (serialWriter) {
             var data = new TextEncoder().encode(cmd + '\n');
@@ -340,6 +342,10 @@ function initClientView() {
 
         // Receive hex file from server → flash Arduino
         if (msg.type === 'flash_hex') {
+            if (isFlashing) {
+                logClient('Flash ya en progreso, ignorando llamada duplicada.', 'info');
+                return;
+            }
             logClient('Recibiendo archivo .hex del servidor...', 'info');
             flashArduino(msg.hex);
         }
@@ -351,6 +357,7 @@ function initClientView() {
 
     // Flash Arduino with received hex
     async function flashArduino(hexBase64) {
+        isFlashing = true;
         try {
             logClient('Iniciando flash del Arduino...', 'info');
 
@@ -396,6 +403,7 @@ function initClientView() {
             }
 
         } catch (e) {
+            isFlashing = false;
             logClient('Error durante flash: ' + e.message, 'error');
             WsClient.send({ type: 'flash_status', success: false, message: 'Error: ' + e.message });
         }
