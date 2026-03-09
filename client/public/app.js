@@ -401,6 +401,7 @@ function initClientView() {
             } catch (e) {
                 logClient('Error reconectando serial: ' + e.message, 'error');
             }
+            isFlashing = false;
 
         } catch (e) {
             isFlashing = false;
