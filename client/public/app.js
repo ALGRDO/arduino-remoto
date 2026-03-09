@@ -273,7 +273,7 @@ function initClientView() {
     var camCanvas = null;
     var camCtx = null;
     var camInterval = null;
-    var FPS = 10;
+    var FPS = 30;
 
     document.getElementById('btn-connect-camera').onclick = async function () {
         try {
