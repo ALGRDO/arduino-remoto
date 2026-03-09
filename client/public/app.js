@@ -174,7 +174,15 @@ function initServerView() {
     var serverPc = null;
 
     function initServerWebRTC() {
-        var ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        var ICE_SERVERS = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:openrelay.metered.ca:80' },
+                { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+            ]
+        };
         serverPc = new RTCPeerConnection(ICE_SERVERS);
 
         serverPc.ontrack = function (event) {
@@ -313,7 +321,15 @@ function initClientView() {
 
             logClient('Cámara local activada. Conectando con el programador...', 'success');
 
-            var ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+            var ICE_SERVERS = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:openrelay.metered.ca:80' },
+                    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+                ]
+            };
             clientPc = new RTCPeerConnection(ICE_SERVERS);
 
             // Add all video tracks to the peer connection
