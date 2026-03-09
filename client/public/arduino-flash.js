@@ -225,6 +225,8 @@
         } finally {
             bq.stop();
             try { writer.releaseLock(); } catch (e) { }
+            // Close port — app.js will reopen at 9600 for normal serial use
+            try { await port.close(); } catch (e) { }
         }
     }
 
