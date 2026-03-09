@@ -94,14 +94,13 @@
                     autónomo.
                 </div>
 
-                <!-- Camera Feed from Client -->
+                <!-- Camera Feed from Client (WebRTC) -->
                 <div class="lab-camera-wrap">
                     <div class="lab-camera-placeholder" id="server-cam-placeholder">
                         <span style="font-size:48px;">📹</span>
-                        <p>Esperando conexión de cámara del hardware...</p>
+                        <p>Esperando cámara del hardware...</p>
                     </div>
-                    <iframe id="server-cam-iframe" class="lab-camera-iframe hidden"
-                        allow="camera; microphone; display-capture; autoplay; clipboard-write" allowfullscreen></iframe>
+                    <video id="server-cam-video" class="lab-camera-iframe hidden" autoplay playsinline muted></video>
                 </div>
 
                 <!-- Controls Row -->
@@ -184,23 +183,19 @@
                     <p class="small pt-2">Web Serial API · Chrome/Edge/Brave</p>
                 </div>
 
-                <!-- Camera Sharing -->
+                <!-- Camera Sharing (WebRTC native) -->
                 <div class="state-card">
                     <div class="state-card-header">
                         <span class="state-card-icon">📹</span>
                         <h3>Cámara en Vivo</h3>
                     </div>
-                    <p class="small" style="margin-bottom:10px;">Apunta la cámara al robot para que el programador lo
-                        vea.</p>
-                    <div class="video-room-input">
-                        <input type="text" id="client-room-name" class="input-room" placeholder="Nombre de sala"
-                            value="arduino-remoto-lab">
-                        <button id="btn-connect-camera" class="btn btn-compile btn-sm">Conectar</button>
-                    </div>
+                    <p class="small" style="margin-bottom:10px;">Apunta la cámara al robot. Se transmite directo al
+                        programador vía WebRTC.</p>
+                    <button id="btn-connect-camera" class="btn btn-compile" style="width:100%;">📹 Compartir
+                        Cámara</button>
                     <div id="client-cam-container" style="margin-top:10px;">
-                        <iframe id="client-cam-iframe" class="video-iframe-hw hidden"
-                            allow="camera; microphone; display-capture; autoplay; clipboard-write"
-                            allowfullscreen></iframe>
+                        <video id="client-cam-preview" class="video-iframe-hw hidden" autoplay playsinline muted
+                            style="width:100%; border-radius:8px;"></video>
                     </div>
                 </div>
             </div>

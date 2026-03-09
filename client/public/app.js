@@ -170,13 +170,34 @@ function initServerView() {
         if (e.key === 'Enter') document.getElementById('btn-serial-send').click();
     });
 
-    // Camera: auto-connect Jitsi for viewing
-    var camIframe = document.getElementById('server-cam-iframe');
-    var camPlaceholder = document.getElementById('server-cam-placeholder');
-    var jitsiUrl = 'https://meet.jit.si/arduino-remoto-lab#config.prejoinPageEnabled=false&config.startWithVideoMuted=true&config.startWithAudioMuted=true&config.disableDeepLinking=true';
-    camIframe.src = jitsiUrl;
-    camIframe.classList.remove('hidden');
-    camPlaceholder.style.display = 'none';
+    // ===== WebRTC: Server receives stream from Client =====
+    var serverPc = null;
+
+    function initServerWebRTC() {
+        var ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+        serverPc = new RTCPeerConnection(ICE_SERVERS);
+
+        serverPc.ontrack = function (event) {
+            var video = document.getElementById('server-cam-video');
+            var placeholder = document.getElementById('server-cam-placeholder');
+            if (event.streams && event.streams[0]) {
+                video.srcObject = event.streams[0];
+                video.classList.remove('hidden');
+                placeholder.style.display = 'none';
+                logIde('📹 Cámara del hardware conectada.', 'success');
+            }
+        };
+
+        serverPc.onicecandidate = function (event) {
+            if (event.candidate) {
+                WsClient.send({ type: 'webrtc_ice', candidate: event.candidate, from: 'server' });
+            }
+        };
+
+        serverPc.onconnectionstatechange = function () {
+            logIde('WebRTC: ' + serverPc.connectionState, 'info');
+        };
+    }
 
     // Listen for messages from client
     WsClient.onMessage(function (msg) {
@@ -191,8 +212,33 @@ function initServerView() {
                 dot.className = 'status-dot offline';
                 txt.textContent = 'Hardware desconectado';
                 logIde('Hardware remoto desconectado.', 'error');
+                if (serverPc) { serverPc.close(); serverPc = null; }
+                var video = document.getElementById('server-cam-video');
+                video.srcObject = null;
+                video.classList.add('hidden');
+                document.getElementById('server-cam-placeholder').style.display = '';
             }
         }
+
+        // WebRTC signaling: receive offer from client, answer it
+        if (msg.type === 'webrtc_offer') {
+            initServerWebRTC();
+            serverPc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
+                .then(function () { return serverPc.createAnswer(); })
+                .then(function (answer) {
+                    return serverPc.setLocalDescription(answer).then(function () { return answer; });
+                })
+                .then(function (answer) {
+                    WsClient.send({ type: 'webrtc_answer', sdp: answer });
+                })
+                .catch(function (e) { logIde('WebRTC answer error: ' + e.message, 'error'); });
+        }
+
+        if (msg.type === 'webrtc_ice' && msg.from !== 'server' && serverPc) {
+            serverPc.addIceCandidate(new RTCIceCandidate(msg.candidate))
+                .catch(function (e) { console.warn('ICE error', e); });
+        }
+
         if (msg.type === 'serial_data') {
             logSerial('< ' + msg.data, 'success');
         }
@@ -252,14 +298,48 @@ function initClientView() {
         }
     }
 
-    // Camera: connect Jitsi to share camera
-    document.getElementById('btn-connect-camera').onclick = function () {
-        var room = document.getElementById('client-room-name').value.trim() || 'arduino-remoto-lab';
-        var url = 'https://meet.jit.si/' + room + '#config.prejoinPageEnabled=false&config.startWithAudioMuted=true&config.disableDeepLinking=true';
-        var iframe = document.getElementById('client-cam-iframe');
-        iframe.src = url;
-        iframe.classList.remove('hidden');
-        logClient('Cámara conectada a sala: ' + room, 'success');
+    // ===== WebRTC: Client sends camera stream to Server =====
+    var clientPc = null;
+    var localStream = null;
+
+    document.getElementById('btn-connect-camera').onclick = async function () {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+
+            // Show local preview
+            var preview = document.getElementById('client-cam-preview');
+            preview.srcObject = localStream;
+            preview.classList.remove('hidden');
+
+            logClient('Cámara local activada. Conectando con el programador...', 'success');
+
+            var ICE_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+            clientPc = new RTCPeerConnection(ICE_SERVERS);
+
+            // Add all video tracks to the peer connection
+            localStream.getTracks().forEach(function (track) {
+                clientPc.addTrack(track, localStream);
+            });
+
+            clientPc.onicecandidate = function (event) {
+                if (event.candidate) {
+                    WsClient.send({ type: 'webrtc_ice', candidate: event.candidate, from: 'client' });
+                }
+            };
+
+            clientPc.onconnectionstatechange = function () {
+                logClient('WebRTC: ' + clientPc.connectionState, 'info');
+            };
+
+            // Create offer and send to server
+            var offer = await clientPc.createOffer();
+            await clientPc.setLocalDescription(offer);
+            WsClient.send({ type: 'webrtc_offer', sdp: clientPc.localDescription });
+            logClient('Oferta WebRTC enviada al programador.', 'info');
+
+        } catch (e) {
+            logClient('Error cámara: ' + e.message, 'error');
+        }
     };
 
     // Listen for messages from server
@@ -276,6 +356,18 @@ function initClientView() {
                 txt.textContent = 'Programador desconectado';
                 logClient('Programador remoto desconectado.', 'error');
             }
+        }
+
+        // WebRTC signaling: receive answer from server
+        if (msg.type === 'webrtc_answer' && clientPc) {
+            clientPc.setRemoteDescription(new RTCSessionDescription(msg.sdp))
+                .then(function () { logClient('WebRTC establecido con el programador.', 'success'); })
+                .catch(function (e) { logClient('WebRTC answer error: ' + e.message, 'error'); });
+        }
+
+        if (msg.type === 'webrtc_ice' && msg.from !== 'client' && clientPc) {
+            clientPc.addIceCandidate(new RTCIceCandidate(msg.candidate))
+                .catch(function (e) { console.warn('ICE error', e); });
         }
 
         // Receive motor/serial commands from server → write to Arduino
