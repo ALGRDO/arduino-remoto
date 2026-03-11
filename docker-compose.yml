@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  arduino-remote:
+    build: .
+    container_name: arduino-remote-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - arduino-data:/root/.arduino15
+
+volumes:
+  arduino-data:
